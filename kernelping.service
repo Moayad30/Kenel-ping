@@ -1,0 +1,17 @@
+[Unit]
+Description=Kernel Ping - Public Address & Office Audio Announcement System
+After=network.target sound.target pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+User=moayad
+WorkingDirectory=/home/moayad/kernelping
+ExecStart=/home/moayad/kernelping/start_production.sh
+Restart=always
+RestartSec=3
+Environment="PYTHONUNBUFFERED=1"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+
+[Install]
+WantedBy=default.target
+

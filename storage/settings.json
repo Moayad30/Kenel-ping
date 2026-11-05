@@ -1,0 +1,9 @@
+{
+  "spam_cooldown_enabled": false,
+  "cooldown_seconds": 15,
+  "pre_chime_enabled": true,
+  "chime_tone": "bell",
+  "bluetooth_wakeup_enabled": true,
+  "server_volume": 90,
+  "tts_voice": "ar-SA-HamedNeural"
+}
