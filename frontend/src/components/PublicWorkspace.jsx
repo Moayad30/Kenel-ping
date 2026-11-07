@@ -3,24 +3,22 @@ import {
   Volume2, VolumeX, Mic, Bell, Users, Calendar, Code, RotateCcw,
   PhoneCall, Rocket, CheckCircle2, Snowflake, AlertTriangle, ServerCrash,
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
-  Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock
+  Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
+  Sun, Moon, Globe, Folder
 } from 'lucide-react';
+import { useThemeLang } from '../context/ThemeLanguageContext';
 
 const ICON_MAP = {
   Users, Calendar, Code, RotateCcw, PhoneCall, Rocket, CheckCircle2,
   Snowflake, AlertTriangle, ServerCrash, Coffee, Utensils, Smile,
-  Package, PartyPopper, ShieldAlert, WifiOff, Sparkles, Lock, Flame, Volume2
+  Package, PartyPopper, ShieldAlert, WifiOff, Sparkles, Lock, Flame,
+  Volume2, Folder
 };
 
-const CATEGORIES = [
-  'الكل',
-  'اجتماعات وتنسيق',
-  'ديف أوبس وبنية تحتية',
-  'ضيافة وحياة المكتب',
-  'طوارئ وتنبيهات أمنية'
-];
-
 export default function PublicWorkspace() {
+  const { theme, toggleTheme, lang, toggleLang, t } = useThemeLang();
+
+  const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
   const [systemState, setSystemState] = useState({
     status: 'ready',
@@ -30,24 +28,32 @@ export default function PublicWorkspace() {
     settings: { spam_cooldown_enabled: true, cooldown_seconds: 15 }
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('الكل');
-  
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
   // Custom Speech Box
   const [customText, setCustomText] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
 
   // Device / Member Callout
-  const [callTarget, setCallTarget] = useState('المهندس المناوب (On-Call)');
-  const [callMessage, setCallMessage] = useState('يرجى الحضور إلى قاعة الاجتماعات الرئيسية فوراً.');
+  const [callTarget, setCallTarget] = useState('');
+  const [callMessage, setCallMessage] = useState('');
   const [isSubmittingCall, setIsSubmittingCall] = useState(false);
 
   // Feedback & Cooldown UI
   const [toast, setToast] = useState(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
-  // Fetch presets and status
+  // Initialize callTarget default once translations load
   useEffect(() => {
+    if (!callTarget && t.callTargets?.length) {
+      setCallTarget(t.callTargets[0]);
+    }
+  }, [t.callTargets]);
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchCategories();
     fetchPresets();
     fetchStatus();
 
@@ -65,7 +71,7 @@ export default function PublicWorkspace() {
           if (data && data.status) {
             setSystemState(data);
           }
-        } catch (e) {
+        } catch {
           // ignore non-json
         }
       };
@@ -107,6 +113,18 @@ export default function PublicWorkspace() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/categories');
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const fetchPresets = async () => {
     try {
       const res = await fetch('/api/presets');
@@ -133,25 +151,27 @@ export default function PublicWorkspace() {
 
   const handleSpeakPreset = async (preset) => {
     if (cooldownRemaining > 0) {
-      showToast(`يرجى الانتظار ${cooldownRemaining} ثوانٍ قبل إرسال نداء آخر منعاً للإزعاج`, 'warning');
+      showToast(t.cooldownWarning.replace('{seconds}', cooldownRemaining), 'warning');
       return;
     }
 
+    const title = lang === 'en' ? (preset.title_en || preset.title) : (preset.title_ar || preset.title);
+
     try {
-      const res = await fetch(`/api/speak/preset/${preset.id}`, { method: 'POST' });
+      const res = await fetch(`/api/speak/preset/${preset.id}?lang=${lang}`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        showToast(`تم إطلاق نداء "${preset.title}" بنجاح 🔊`, 'success');
+        showToast(t.speakSuccess.replace('{title}', title), 'success');
         if (systemState.settings?.spam_cooldown_enabled) {
           setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
         }
       } else if (res.status === 429) {
         showToast(data.detail, 'warning');
       } else {
-        showToast(data.detail || 'حدث خطأ أثناء إرسال النداء', 'error');
+        showToast(data.detail || t.errorGeneric, 'error');
       }
-    } catch (err) {
-      showToast('تعذر الاتصال بخادم الصوت', 'error');
+    } catch {
+      showToast(t.errorNetwork, 'error');
     }
   };
 
@@ -160,7 +180,7 @@ export default function PublicWorkspace() {
     if (!customText.trim()) return;
 
     if (cooldownRemaining > 0) {
-      showToast(`يرجى الانتظار ${cooldownRemaining} ثوانٍ قبل إرسال نداء آخر`, 'warning');
+      showToast(t.cooldownWarning.replace('{seconds}', cooldownRemaining), 'warning');
       return;
     }
 
@@ -170,13 +190,14 @@ export default function PublicWorkspace() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: customTitle.trim() || 'نداء حر من الفريق',
-          text: customText.trim()
+          title: customTitle.trim() || (lang === 'en' ? 'Team Announcement' : 'نداء حر من الفريق'),
+          text: customText.trim(),
+          lang: lang
         })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('تم إرسال النص إلى إذاعة المكتب 🎙️', 'success');
+        showToast(t.customSuccess, 'success');
         setCustomText('');
         setCustomTitle('');
         if (systemState.settings?.spam_cooldown_enabled) {
@@ -185,10 +206,10 @@ export default function PublicWorkspace() {
       } else if (res.status === 429) {
         showToast(data.detail, 'warning');
       } else {
-        showToast(data.detail || 'خطأ في معالجة النص', 'error');
+        showToast(data.detail || t.errorGeneric, 'error');
       }
-    } catch (err) {
-      showToast('تعذر الاتصال بالخادم', 'error');
+    } catch {
+      showToast(t.errorNetwork, 'error');
     } finally {
       setIsSubmittingCustom(false);
     }
@@ -199,7 +220,7 @@ export default function PublicWorkspace() {
     if (!callTarget.trim()) return;
 
     if (cooldownRemaining > 0) {
-      showToast(`يرجى الانتظار ${cooldownRemaining} ثوانٍ قبل الاستدعاء`, 'warning');
+      showToast(t.cooldownWarning.replace('{seconds}', cooldownRemaining), 'warning');
       return;
     }
 
@@ -210,22 +231,23 @@ export default function PublicWorkspace() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           target: callTarget,
-          message: callMessage
+          message: callMessage,
+          lang: lang
         })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`تم إطلاق استدعاء ${callTarget} في أرجاء المكتب 📢`, 'success');
+        showToast(t.callSuccess.replace('{target}', callTarget), 'success');
         if (systemState.settings?.spam_cooldown_enabled) {
           setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
         }
       } else if (res.status === 429) {
         showToast(data.detail, 'warning');
       } else {
-        showToast(data.detail || 'خطأ في إرسال الاستدعاء', 'error');
+        showToast(data.detail || t.errorGeneric, 'error');
       }
-    } catch (err) {
-      showToast('تعذر إرسال الاستدعاء', 'error');
+    } catch {
+      showToast(t.errorNetwork, 'error');
     } finally {
       setIsSubmittingCall(false);
     }
@@ -233,49 +255,84 @@ export default function PublicWorkspace() {
 
   const filteredPresets = useMemo(() => {
     return presets.filter((p) => {
-      const matchesCategory = selectedCategory === 'الكل' || p.category === selectedCategory;
+      const matchesCategory =
+        selectedCategory === 'all' ||
+        p.category_id === selectedCategory ||
+        p.category === selectedCategory;
+
       const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q || p.title.toLowerCase().includes(q) || p.text.toLowerCase().includes(q);
+      if (!q) return matchesCategory;
+
+      const titleAr = (p.title_ar || p.title || '').toLowerCase();
+      const titleEn = (p.title_en || '').toLowerCase();
+      const textAr = (p.text_ar || p.text || '').toLowerCase();
+      const textEn = (p.text_en || '').toLowerCase();
+
+      const matchesSearch =
+        titleAr.includes(q) ||
+        titleEn.includes(q) ||
+        textAr.includes(q) ||
+        textEn.includes(q);
+
       return matchesCategory && matchesSearch;
     });
   }, [presets, selectedCategory, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-[#070C1B] text-slate-100 pb-16">
-      {/* Toast Notification */}
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#070C1B] text-slate-100' : 'bg-[#F8FAFC] text-slate-800'} pb-16 transition-colors duration-200`}>
+      {/* Toast Alert */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md border animate-bounce text-sm font-semibold transition-all"
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-bounce text-sm font-semibold transition-all"
              style={{
-               backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.9)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.9)' : 'rgba(239, 68, 68, 0.9)',
-               borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444'
+               backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
+               borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444',
+               color: '#FFFFFF'
              }}>
           <span>{toast.message}</span>
         </div>
       )}
 
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[#0B132B]/90 backdrop-blur-lg border-b border-[#1F3152] px-4 lg:px-8 py-3.5 shadow-xl">
+      <header className={`sticky top-0 z-40 backdrop-blur-lg border-b px-4 lg:px-8 py-3.5 shadow-xl transition-colors duration-200 ${
+        theme === 'dark' ? 'bg-[#0B132B]/90 border-[#1F3152]' : 'bg-white/90 border-slate-200 shadow-slate-100'
+      }`}>
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          {/* Logo & Identity */}
+          
+          {/* Brand Identity with User Uploaded Logo */}
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#00D2FF] to-blue-700 flex items-center justify-center shadow-lg shadow-[#00D2FF]/20 ring-1 ring-[#00D2FF]/40">
-              <Radio className="w-6 h-6 text-slate-950 animate-pulse" />
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 shadow-lg ring-1 transition-all ${
+              theme === 'dark' 
+                ? 'bg-gradient-to-br from-[#0B132B] to-[#162238] shadow-[#00D2FF]/20 ring-[#00D2FF]/30' 
+                : 'bg-white shadow-sky-200/50 ring-sky-300'
+            }`}>
+              <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain filter drop-shadow" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black tracking-tight text-white">Kernel Ping</h1>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/30 font-bold">
-                  كيرنال بينغ
+                <h1 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {t.appName}
+                </h1>
+                <span className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold border transition-colors ${
+                  theme === 'dark' 
+                    ? 'bg-[#00D2FF]/10 text-[#00D2FF] border-[#00D2FF]/30' 
+                    : 'bg-sky-50 text-sky-700 border-sky-200'
+                }`}>
+                  {t.badgeLabel}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">نظام النداء والإذاعة الصوتي لمكتب كيرنال تك</p>
+              <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                {t.appSubtitle}
+              </p>
             </div>
           </div>
 
-          {/* Live Speaker & PipeWire Status Indicator */}
-          <div className="flex items-center gap-3">
-            {/* Status Pill */}
-            <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#121C33] border border-[#1F3152]">
+          {/* Controls: Speaker Status, Volume, Theme Toggle, Language Toggle */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            
+            {/* Live Speaker Status Pill */}
+            <div className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+              theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-100 border-slate-200'
+            }`}>
               {systemState.status === 'speaking' ? (
                 <>
                   <div className="flex items-end gap-1 h-4">
@@ -283,36 +340,68 @@ export default function PublicWorkspace() {
                     <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '150ms' }} />
                     <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span className="text-xs font-bold text-[#00D2FF]">قيد النطق الآن بالمكتب</span>
+                  <span className="text-xs font-bold text-[#00D2FF]">{t.statusSpeaking}</span>
                 </>
               ) : systemState.status === 'queued' ? (
                 <>
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                  <span className="text-xs font-bold text-amber-300">
-                    في الطابور ({systemState.queue_length})
+                  <span className="text-xs font-bold text-amber-500">
+                    {t.statusQueued} ({systemState.queue_length})
                   </span>
                 </>
               ) : (
                 <>
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34D399]" />
-                  <span className="text-xs font-medium text-emerald-300">البفلة جاهزة</span>
+                  <span className={`text-xs font-medium ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                    {t.statusReady}
+                  </span>
                 </>
               )}
             </div>
 
-            {/* Volume Pill */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#121C33] border border-[#1F3152] text-xs text-slate-300 font-mono">
-              <Volume2 className="w-3.5 h-3.5 text-[#00D2FF]" />
+            {/* Volume Badge */}
+            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono transition-colors ${
+              theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}>
+              <Volume2 className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
               <span>{systemState.server_volume}%</span>
             </div>
 
-            {/* Cooldown Timer (if active) */}
+            {/* Cooldown Timer Badge */}
             {cooldownRemaining > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 font-mono font-bold animate-pulse">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs text-amber-500 font-mono font-bold animate-pulse">
                 <Clock className="w-3.5 h-3.5" />
-                <span>مهلة: {cooldownRemaining}s</span>
+                <span>{cooldownRemaining}s</span>
               </div>
             )}
+
+            {/* Theme Switcher Button */}
+            <button
+              onClick={toggleTheme}
+              title={t.themeToggle}
+              className={`p-2 rounded-xl border transition-all ${
+                theme === 'dark' 
+                  ? 'bg-[#121C33] border-[#1F3152] text-amber-400 hover:bg-[#1C2A47]' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* Language Switcher Button */}
+            <button
+              onClick={toggleLang}
+              title="Change Language / تغيير اللغة"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                theme === 'dark'
+                  ? 'bg-[#121C33] border-[#1F3152] text-[#00D2FF] hover:bg-[#1C2A47]'
+                  : 'bg-slate-100 border-slate-200 text-sky-700 hover:bg-slate-200'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>{t.langToggle}</span>
+            </button>
+
           </div>
         </div>
       </header>
@@ -320,85 +409,150 @@ export default function PublicWorkspace() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 lg:px-8 mt-6 space-y-8">
         
-        {/* Search & Filter Bar */}
-        <section className="bg-[#0B132B] p-4 rounded-2xl border border-[#1F3152] shadow-xl flex flex-col md:flex-row gap-4 justify-between items-center">
-          {/* Instant Search Input */}
+        {/* Search & Dynamic Category Filter Bar */}
+        <section className={`p-4 rounded-3xl border shadow-xl flex flex-col md:flex-row gap-4 justify-between items-center transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
+        }`}>
+          {/* Instant Search Bar */}
           <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className={`w-4 h-4 absolute ${lang === 'ar' ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400`} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن جملة، تنبيه، أو أمر إذاعي..."
-              className="w-full bg-[#070C1B] border border-[#1F3152] rounded-xl pr-10 pl-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#00D2FF] transition-all"
+              placeholder={t.searchPlaceholder}
+              className={`w-full border rounded-2xl ${lang === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2.5 text-sm transition-all focus:outline-none ${
+                theme === 'dark'
+                  ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
+                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
+              }`}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                className={`absolute ${lang === 'ar' ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600`}
               >
                 ✕
               </button>
             )}
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  selectedCategory === cat
-                    ? 'bg-[#00D2FF] text-slate-950 font-bold shadow-md shadow-[#00D2FF]/20'
-                    : 'bg-[#121C33] text-slate-300 hover:bg-[#1C2A47] hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Dynamic Category Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+            {/* All Category Pill */}
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
+                selectedCategory === 'all'
+                  ? theme === 'dark'
+                    ? 'bg-[#00D2FF] text-slate-950 shadow-md shadow-[#00D2FF]/20 font-black'
+                    : 'bg-sky-600 text-white shadow-md shadow-sky-600/20 font-black'
+                  : theme === 'dark'
+                    ? 'bg-[#121C33] text-slate-300 hover:bg-[#1C2A47]'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {t.allCategories} ({presets.length})
+            </button>
+
+            {/* Dynamic Categories from API */}
+            {categories.map((cat) => {
+              const count = presets.filter(p => p.category_id === cat.id || p.category === cat.name_ar).length;
+              const isSelected = selectedCategory === cat.id;
+              const catName = lang === 'en' ? (cat.name_en || cat.name_ar) : (cat.name_ar || cat.name_en);
+
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                    isSelected
+                      ? theme === 'dark'
+                        ? 'bg-[#00D2FF] text-slate-950 shadow-md shadow-[#00D2FF]/20 font-black'
+                        : 'bg-sky-600 text-white shadow-md shadow-sky-600/20 font-black'
+                      : theme === 'dark'
+                        ? 'bg-[#121C33] text-slate-300 hover:bg-[#1C2A47]'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>{catName}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isSelected 
+                      ? 'bg-black/20 text-slate-950' 
+                      : theme === 'dark' ? 'bg-[#1F3152] text-slate-400' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        {/* 20 Categorized Presets Grid */}
+        {/* 20 Presets Grid Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[#00D2FF]" />
-              <h2 className="text-base font-bold text-white">شبكة التنبيهات السريعة (جاهزة للاستجابة الفورية)</h2>
+              <Activity className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
+              <h2 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                {t.quickAlertsTitle}
+              </h2>
             </div>
-            <span className="text-xs text-slate-400 font-mono">
-              {filteredPresets.length} من أصل {presets.length} جملة
+            <span className={`text-xs font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              {filteredPresets.length} {t.presetsCount}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {filteredPresets.map((preset) => {
               const IconComponent = ICON_MAP[preset.icon] || Volume2;
+              const title = lang === 'en' ? (preset.title_en || preset.title) : (preset.title_ar || preset.title);
+              const text = lang === 'en' ? (preset.text_en || preset.text) : (preset.text_ar || preset.text);
+
+              // Find category name
+              const matchedCat = categories.find(c => c.id === preset.category_id || c.name_ar === preset.category);
+              const categoryBadge = matchedCat 
+                ? (lang === 'en' ? matchedCat.name_en : matchedCat.name_ar) 
+                : preset.category;
+
               return (
                 <div
                   key={preset.id}
-                  className="group relative bg-[#0B132B] hover:bg-[#121C33] border border-[#1F3152] hover:border-[#00D2FF]/50 rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 shadow-lg hover:shadow-[#00D2FF]/10 hover:-translate-y-0.5"
+                  className={`group relative rounded-3xl p-5 flex flex-col justify-between transition-all duration-200 border ${
+                    theme === 'dark'
+                      ? 'bg-[#0B132B] hover:bg-[#121C33] border-[#1F3152] hover:border-[#00D2FF]/50 shadow-lg hover:shadow-[#00D2FF]/10'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-md'
+                  } hover:-translate-y-0.5`}
                 >
                   <div>
                     {/* Header: Icon & Category Tag */}
                     <div className="flex items-center justify-between mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-[#162238] group-hover:bg-[#00D2FF]/10 border border-[#1F3152] group-hover:border-[#00D2FF]/40 flex items-center justify-center transition-colors">
-                        <IconComponent className="w-4 h-4 text-[#00D2FF]" />
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors border ${
+                        theme === 'dark'
+                          ? 'bg-[#162238] group-hover:bg-[#00D2FF]/10 border-[#1F3152] group-hover:border-[#00D2FF]/40'
+                          : 'bg-slate-100 group-hover:bg-sky-50 border-slate-200 group-hover:border-sky-200'
+                      }`}>
+                        <IconComponent className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
                       </div>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#162238] text-slate-400">
-                        {preset.category}
+                      <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-xl ${
+                        theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {categoryBadge}
                       </span>
                     </div>
 
                     {/* Title */}
-                    <h3 className="font-bold text-sm text-white group-hover:text-[#00D2FF] transition-colors mb-1.5">
-                      {preset.title}
+                    <h3 className={`font-bold text-sm mb-1.5 transition-colors ${
+                      theme === 'dark' ? 'text-white group-hover:text-[#00D2FF]' : 'text-slate-900 group-hover:text-sky-600'
+                    }`}>
+                      {title}
                     </h3>
 
-                    {/* Spoken text excerpt */}
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                      "{preset.text}"
+                    {/* Spoken Text Excerpt */}
+                    <p className={`text-xs line-clamp-2 leading-relaxed ${
+                      theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+                    }`}>
+                      "{text}"
                     </p>
                   </div>
 
@@ -406,10 +560,14 @@ export default function PublicWorkspace() {
                   <button
                     onClick={() => handleSpeakPreset(preset)}
                     disabled={cooldownRemaining > 0}
-                    className="mt-4 w-full py-2 px-3 rounded-xl bg-[#162238] hover:bg-[#00D2FF] text-slate-300 hover:text-slate-950 font-semibold text-xs flex items-center justify-center gap-2 border border-[#1F3152] hover:border-[#00D2FF] transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                    className={`mt-5 w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn ${
+                      theme === 'dark'
+                        ? 'bg-[#162238] hover:bg-[#00D2FF] text-slate-200 hover:text-slate-950 border-[#1F3152] hover:border-[#00D2FF]'
+                        : 'bg-slate-100 hover:bg-sky-600 text-slate-700 hover:text-white border-slate-200 hover:border-sky-600'
+                    }`}
                   >
-                    <Volume2 className="w-3.5 h-3.5 text-[#00D2FF] group-hover/btn:text-slate-950 transition-colors" />
-                    <span>إذاعة النداء</span>
+                    <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
+                    <span>{t.speakButton}</span>
                   </button>
                 </div>
               );
@@ -420,122 +578,145 @@ export default function PublicWorkspace() {
         {/* Lower Row: Free Speech Box & Device Callout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Free Text-to-Speech Box ("صندوق النطق الحر") */}
-          <section className="bg-[#0B132B] border border-[#1F3152] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+          {/* Free Text-to-Speech Box */}
+          <section className={`border rounded-3xl p-6 shadow-xl flex flex-col justify-between transition-colors duration-200 ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
+          }`}>
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#00D2FF]/10 border border-[#00D2FF]/30 flex items-center justify-center">
-                    <Mic className="w-4 h-4 text-[#00D2FF]" />
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-2xl flex items-center justify-center border ${
+                    theme === 'dark' ? 'bg-[#00D2FF]/10 border-[#00D2FF]/30 text-[#00D2FF]' : 'bg-sky-50 border-sky-200 text-sky-600'
+                  }`}>
+                    <Mic className="w-4 h-4" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-sm text-white">صندوق النطق الحر</h2>
-                    <p className="text-[11px] text-slate-400">تحويل أي نص عربي مكتوب إلى كلام مسموع بالمكتب عبر Edge TTS</p>
+                    <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                      {t.freeSpeechTitle}
+                    </h2>
+                    <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {t.freeSpeechSubtitle}
+                    </p>
                   </div>
                 </div>
-                <span className="text-xs font-mono text-slate-400">
-                  {customText.length}/300
+                <span className={`text-xs font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {customText.length}/400
                 </span>
               </div>
 
-              <form onSubmit={handleCustomSubmit} className="space-y-3">
+              <form onSubmit={handleCustomSubmit} className="space-y-3.5">
                 <textarea
                   rows={3}
-                  maxLength={300}
+                  maxLength={400}
                   value={customText}
                   onChange={(e) => setCustomText(e.target.value)}
-                  placeholder="اكتب رسالتك هنا ليتم نطقها في أرجاء المكتب... (مثال: نذكر الجميع ببدء صلاة الظهر بعد قليل)"
-                  className="w-full bg-[#070C1B] border border-[#1F3152] rounded-xl p-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#00D2FF] transition-all resize-none"
+                  placeholder={t.freeSpeechPlaceholder}
+                  className={`w-full border rounded-2xl p-3.5 text-sm transition-all resize-none focus:outline-none ${
+                    theme === 'dark'
+                      ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
+                      : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
+                  }`}
                 />
 
                 {/* Quick Phrases */}
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="text-[11px] text-slate-400 self-center ml-1">اقتراحات سريعة:</span>
-                  {[
-                    'يرجى خفض الصوت في القاعة',
-                    'وصل طلب الطعام في المطبخ',
-                    'استراحة قصيرة للقهوة',
-                    'اجتماع طارئ بعد دقيقتين'
-                  ].map((phrase) => (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className={`text-[11px] font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t.quickSuggestions}
+                  </span>
+                  {t.quickSuggestionsList?.map((phrase) => (
                     <button
                       type="button"
                       key={phrase}
                       onClick={() => setCustomText(phrase)}
-                      className="text-[10px] bg-[#162238] hover:bg-[#1F3152] text-slate-300 px-2.5 py-1 rounded-lg border border-[#1F3152] transition-colors"
+                      className={`text-[11px] px-2.5 py-1 rounded-xl border transition-colors ${
+                        theme === 'dark'
+                          ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300 border-[#1F3152]'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                      }`}
                     >
                       {phrase}
                     </button>
                   ))}
                 </div>
 
-                <div className="flex justify-end pt-1">
+                <div className="flex justify-end pt-2">
                   <button
                     type="submit"
                     disabled={isSubmittingCustom || !customText.trim() || cooldownRemaining > 0}
-                    className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="py-2.5 px-6 rounded-2xl bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmittingCustom ? 'جاري الإرسال...' : 'نطق الرسالة الآن'}</span>
+                    <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
                   </button>
                 </div>
               </form>
             </div>
           </section>
 
-          {/* Device & Member Callout ("استدعاء الأجهزة والأفراد") */}
-          <section className="bg-[#0B132B] border border-[#1F3152] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+          {/* Device & Member Callout */}
+          <section className={`border rounded-3xl p-6 shadow-xl flex flex-col justify-between transition-colors duration-200 ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
+          }`}>
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-rose-400" />
+              <div className="flex items-center gap-2.5 mb-3.5">
+                <div className="w-9 h-9 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500">
+                  <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="font-bold text-sm text-white">استدعاء الأجهزة والأفراد</h2>
-                  <p className="text-[11px] text-slate-400">توجيه نداء نداء مخصص باسم الشخص أو الدور الوظيفي</p>
+                  <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    {t.calloutTitle}
+                  </h2>
+                  <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t.calloutSubtitle}
+                  </p>
                 </div>
               </div>
 
-              <form onSubmit={handleCallSubmit} className="space-y-3">
+              <form onSubmit={handleCallSubmit} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    الجهة أو الشخص المستدعى:
+                  <label className={`block text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                    {t.targetLabel}
                   </label>
                   <select
                     value={callTarget}
                     onChange={(e) => setCallTarget(e.target.value)}
-                    className="w-full bg-[#070C1B] border border-[#1F3152] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#00D2FF] transition-all"
+                    className={`w-full border rounded-2xl px-4 py-2.5 text-xs transition-all focus:outline-none ${
+                      theme === 'dark'
+                        ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]'
+                        : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500'
+                    }`}
                   >
-                    <option value="المهندس المناوب (On-Call)">المهندس المناوب (On-Call)</option>
-                    <option value="فريق الديف أوبس والبنية التحتية">فريق الديف أوبس والبنية التحتية</option>
-                    <option value="قائد الفريق التقني (Tech Lead)">قائد الفريق التقني (Tech Lead)</option>
-                    <option value="فريق تطوير الواجهات (Frontend)">فريق تطوير الواجهات (Frontend)</option>
-                    <option value="فريق الباك إند (Backend Team)">فريق الباك إند (Backend Team)</option>
-                    <option value="إدارة المكتب والاستقبال">إدارة المكتب والاستقبال</option>
-                    <option value="فريق أمن المعلومات (Security)">فريق أمن المعلومات (Security)</option>
+                    {t.callTargets?.map((target) => (
+                      <option key={target} value={target}>{target}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    الرسالة أو الإجراء المطلوب:
+                  <label className={`block text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                    {t.messageLabel}
                   </label>
                   <input
                     type="text"
                     value={callMessage}
                     onChange={(e) => setCallMessage(e.target.value)}
-                    placeholder="مثال: يرجى الحضور فوراً إلى قاعة السيرفرات أو الاجتماعات"
-                    className="w-full bg-[#070C1B] border border-[#1F3152] rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00D2FF] transition-all"
+                    placeholder={t.callMessagePlaceholder}
+                    className={`w-full border rounded-2xl px-4 py-2.5 text-xs transition-all focus:outline-none ${
+                      theme === 'dark'
+                        ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
+                        : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
+                    }`}
                   />
                 </div>
 
-                <div className="flex justify-end pt-1">
+                <div className="flex justify-end pt-2">
                   <button
                     type="submit"
                     disabled={isSubmittingCall || !callTarget.trim() || cooldownRemaining > 0}
-                    className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-400 hover:to-amber-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="py-2.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-400 hover:to-amber-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     <Bell className="w-3.5 h-3.5 animate-bounce" />
-                    <span>{isSubmittingCall ? 'جاري الاستدعاء...' : 'إرسال استدعاء عاجل 📢'}</span>
+                    <span>{isSubmittingCall ? t.callSubmitting : t.callButton}</span>
                   </button>
                 </div>
               </form>
@@ -546,11 +727,12 @@ export default function PublicWorkspace() {
 
       </main>
 
-      {/* Public Footer - Strictly clean, NO admin link or hint whatsoever */}
-      <footer className="mt-12 text-center text-xs text-slate-500 border-t border-[#1F3152]/40 pt-6">
-        <p>نظام Kernel Ping © 2026 - بيئة الاتصال الصوتي الداخلي لمكتب كيرنال تك</p>
+      {/* Public Footer - Strictly clean with ZERO admin mention */}
+      <footer className={`mt-14 text-center text-xs border-t pt-6 transition-colors duration-200 ${
+        theme === 'dark' ? 'text-slate-500 border-[#1F3152]/40' : 'text-slate-400 border-slate-200'
+      }`}>
+        <p>{t.footerText}</p>
       </footer>
     </div>
   );
 }
-

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PublicWorkspace from './components/PublicWorkspace';
 import AdminApp from './components/AdminApp';
+import { ThemeLanguageProvider } from './context/ThemeLanguageContext';
 
-export default function App() {
+function MainRouter() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -23,3 +24,10 @@ export default function App() {
   return <PublicWorkspace />;
 }
 
+export default function App() {
+  return (
+    <ThemeLanguageProvider>
+      <MainRouter />
+    </ThemeLanguageProvider>
+  );
+}

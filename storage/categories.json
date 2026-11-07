@@ -1,0 +1,34 @@
+[
+  {
+    "id": "meetings",
+    "name_ar": "اجتماعات وتنسيق",
+    "name_en": "Meetings & Sync",
+    "icon": "Users",
+    "color": "cyan",
+    "order": 1
+  },
+  {
+    "id": "devops",
+    "name_ar": "ديف أوبس وبنية تحتية",
+    "name_en": "DevOps & Infra",
+    "icon": "Rocket",
+    "color": "emerald",
+    "order": 2
+  },
+  {
+    "id": "office",
+    "name_ar": "ضيافة وحياة المكتب",
+    "name_en": "Office & Life",
+    "icon": "Coffee",
+    "color": "amber",
+    "order": 3
+  },
+  {
+    "id": "alerts",
+    "name_ar": "طوارئ وتنبيهات أمنية",
+    "name_en": "Alerts & Security",
+    "icon": "ShieldAlert",
+    "color": "rose",
+    "order": 4
+  }
+]

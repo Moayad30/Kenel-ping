@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -19,7 +20,8 @@ export default {
         }
       },
       fontFamily: {
-        arabic: ['Noto Sans Arabic', 'Tajawal', 'system-ui', 'sans-serif'],
+        arabic: ['Tajawal', 'system-ui', 'sans-serif'],
+        english: ['Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -39,4 +41,3 @@ export default {
   },
   plugins: [],
 }
-

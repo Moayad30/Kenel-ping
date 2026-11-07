@@ -4,25 +4,49 @@
 
 @layer base {
   body {
-    @apply bg-[#070C1B] text-slate-100;
+    @apply transition-colors duration-200 antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  html.dark body {
+    @apply bg-[#070C1B] text-slate-100;
+  }
+
+  html.light body {
+    @apply bg-[#F8FAFC] text-slate-800;
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
+/* Custom scrollbar for dark */
+html.dark ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track {
+html.dark ::-webkit-scrollbar-track {
   background: #0B132B;
 }
-::-webkit-scrollbar-thumb {
+html.dark ::-webkit-scrollbar-thumb {
   background: #1F3152;
   border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
+html.dark ::-webkit-scrollbar-thumb:hover {
   background: #00D2FF;
+}
+
+/* Custom scrollbar for light */
+html.light ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html.light ::-webkit-scrollbar-track {
+  background: #E2E8F0;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #0284C7;
 }
 
 .glow-cyan {
@@ -36,4 +60,3 @@
 .glow-card:hover {
   box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6), 0 0 20px -2px rgba(0, 210, 255, 0.25);
 }
-
