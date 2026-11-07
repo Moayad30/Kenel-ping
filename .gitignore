@@ -1,18 +1,18 @@
-# بيئات بايثون الافتراضية
+# Python Virtual Environments
 venv/
 .venv/
 env/
 ENV/
 
-# ملفات البايت كود ومخلفات التشغيل
+# Byte-code and Runtime Cache
 __pycache__/
 *.py[cod]
 *$py.class
 
-# ملفات تعريف النظام والبيئة السرية
+# Environment Variables and Logs
 .env
 *.log
 
-# مجلدات محررات الأكواد
+# Editor Directories
 .vscode/
 .idea/

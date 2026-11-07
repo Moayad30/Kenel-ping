@@ -1,13 +1,5 @@
 [
   {
-    "id": "meetings",
-    "name_ar": "اجتماعات وتنسيق",
-    "name_en": "Meetings & Sync",
-    "icon": "Users",
-    "color": "cyan",
-    "order": 1
-  },
-  {
     "id": "devops",
     "name_ar": "ديف أوبس وبنية تحتية",
     "name_en": "DevOps & Infra",
@@ -30,5 +22,13 @@
     "icon": "ShieldAlert",
     "color": "rose",
     "order": 4
+  },
+  {
+    "id": "uncategorized",
+    "name_ar": "غير مصنف",
+    "name_en": "Uncategorized",
+    "icon": "Folder",
+    "color": "cyan",
+    "order": 99
   }
 ]

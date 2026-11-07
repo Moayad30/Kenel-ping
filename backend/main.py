@@ -1,9 +1,10 @@
 import os
 import uuid
 import asyncio
+from pathlib import Path
 from typing import Optional, List
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Request, Query
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Request, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -19,11 +20,11 @@ from backend.tashkeel import diacritize_arabic
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: start queue worker
+    # Startup: initialize audio engine queue and volume monitor
     audio_engine.start()
     yield
 
-app = FastAPI(title="Kernel Ping API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Kernel Ping API", version="2.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----------------- Models -----------------
+# ----------------- Request Models -----------------
 
 class LoginRequest(BaseModel):
     username: str
@@ -53,7 +54,7 @@ class VolumeRequest(BaseModel):
     volume: int = Field(..., ge=0, le=100)
 
 class TestChimeRequest(BaseModel):
-    tone: str # airport | bell | alert
+    tone: str  # airport | bell | alert
 
 class TestVoiceRequest(BaseModel):
     voice: str
@@ -82,33 +83,60 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/api/status")
 async def get_status():
+    """Returns current audio engine state, active audio device, and cooldown timer."""
     return audio_engine.get_state_dict()
 
 @app.get("/api/categories")
 async def get_public_categories():
+    """Returns categories for presets."""
     categories = load_categories()
+    # Ensure uncategorized exists
+    if not any(c.id == "uncategorized" for c in categories):
+        categories.append(CategoryModel(
+            id="uncategorized",
+            name_ar="Uncategorized",
+            name_en="Uncategorized",
+            icon="Folder",
+            color="cyan",
+            order=99
+        ))
     return sorted(categories, key=lambda c: c.order or 0)
 
 @app.get("/api/presets")
 async def get_public_presets():
+    """Returns list of announcement presets."""
     presets = load_presets()
     return presets
 
+@app.post("/api/volume")
+async def set_public_volume(payload: VolumeRequest):
+    """Allows workspace members to adjust device output volume."""
+    vol = await audio_engine.set_volume(payload.volume)
+    return {"success": True, "volume": vol}
+
 @app.post("/api/speak/preset/{preset_id}")
 async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Query(default=None)):
+    """Triggers playback of a predefined announcement preset."""
     can_proceed, remaining = audio_engine.check_cooldown()
     if not can_proceed:
-        msg = f"يرجى الانتظار {remaining} ثانية قبل إرسال نداء جديد لمنع الإزعاج" if lang != "en" else f"Please wait {remaining}s before sending another announcement"
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=msg)
-    
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining}s before sending another announcement"
+        )
+
     presets = load_presets()
     preset = next((p for p in presets if p.id == preset_id), None)
     if not preset:
-        raise HTTPException(status_code=404, detail="Preset not found" if lang == "en" else "الجملة غير موجودة")
+        raise HTTPException(
+            status_code=404, 
+            detail="Preset not found"
+        )
 
-    # Decouple preset text from UI language: preset has its own defined single text & title
+    # Use single title & single text regardless of interface language
     speech_text = preset.text or preset.text_ar or preset.text_en or ""
     speech_title = preset.title or preset.title_ar or preset.title_en or preset.id
+    
+    # Auto-detect language: if Arabic -> Arabic engine, if English -> English engine
     preset_lang = detect_language(speech_text)
 
     client_ip = request.client.host if request.client else "Local"
@@ -120,40 +148,60 @@ async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Q
         sender_ip=client_ip,
         lang=preset_lang
     )
-    return {"success": True, "message": "Queued successfully" if lang == "en" else "تمت إضافة النداء إلى الطابور بنجاح", "item": item}
+    return {
+        "success": True,
+        "message": "Queued successfully",
+        "item": item
+    }
 
 @app.post("/api/speak/custom")
 async def speak_custom(payload: SpeakCustomRequest, request: Request):
+    """Triggers speech for custom free-form text input."""
     text = payload.text.strip()
-    lang = payload.lang or detect_language(text)
+    # Auto-detect language
+    detected_lang = detect_language(text)
+    lang = payload.lang or detected_lang
 
     if not text:
-        raise HTTPException(status_code=400, detail="Text cannot be empty" if lang == "en" else "لا يمكن ترك نص النطق فارغاً")
+        raise HTTPException(
+            status_code=400, 
+            detail="Text cannot be empty"
+        )
     if len(text) > 400:
-        raise HTTPException(status_code=400, detail="Text exceeds 400 characters" if lang == "en" else "الحد الأقصى للنص هو 400 حرف")
+        raise HTTPException(
+            status_code=400, 
+            detail="Text exceeds 400 characters"
+        )
 
     can_proceed, remaining = audio_engine.check_cooldown()
     if not can_proceed:
-        msg = f"يرجى الانتظار {remaining} ثانية قبل إرسال نداء جديد لمنع الإزعاج" if lang == "ar" else f"Please wait {remaining}s before sending another announcement"
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=msg)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining}s before sending another announcement"
+        )
 
     client_ip = request.client.host if request.client else "Local"
-    title = payload.title or ("Free Announcement" if lang == "en" else "نداء حر")
+    title = payload.title or "Free Announcement"
     item = await audio_engine.enqueue(
         title=title,
         text=text,
         source="free_text",
         sender_ip=client_ip,
-        lang=lang
+        lang=detected_lang
     )
-    return {"success": True, "message": "Queued" if lang == "en" else "تمت إضافة النص الحر إلى الطابور بنجاح", "item": item}
+    return {
+        "success": True, 
+        "message": "Queued successfully", 
+        "item": item
+    }
 
 @app.post("/api/tashkeel")
 async def tashkeel_text(payload: TashkeelRequest):
+    """Adds Arabic diacritics to text for accurate pronunciation."""
     raw_text = payload.text.strip()
     if not raw_text:
         return {"success": True, "original": "", "diacritized": ""}
-    
+
     diacritized = diacritize_arabic(raw_text)
     return {
         "success": True,
@@ -163,19 +211,25 @@ async def tashkeel_text(payload: TashkeelRequest):
 
 @app.post("/api/speak/call")
 async def speak_device_or_person(payload: SpeakCallRequest, request: Request):
+    """Triggers an urgent targeted department or person announcement."""
     target = payload.target.strip()
-    lang = payload.lang or detect_language(target + (payload.message or ""))
+    detected_lang = detect_language(target + (payload.message or ""))
 
     if not target:
-        raise HTTPException(status_code=400, detail="Target name required" if lang == "en" else "يرجى تحديد اسم الشخص أو القسم أو الجهاز المستدعى")
+        raise HTTPException(
+            status_code=400, 
+            detail="Target name required"
+        )
 
     can_proceed, remaining = audio_engine.check_cooldown()
     if not can_proceed:
-        msg = f"يرجى الانتظار {remaining} ثانية قبل إرسال نداء جديد لمنع الإزعاج" if lang == "ar" else f"Please wait {remaining}s before calling"
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=msg)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining}s before calling"
+        )
 
     msg = payload.message.strip() if payload.message else ""
-    if lang == "en":
+    if detected_lang == "en":
         if msg:
             full_text = f"Urgent call for {target}. {msg}"
         else:
@@ -183,10 +237,10 @@ async def speak_device_or_person(payload: SpeakCallRequest, request: Request):
         title = f"Call: {target}"
     else:
         if msg:
-            full_text = f"نداء عاجل إلى {target}، {msg}"
+            full_text = f"\u0646\u062f\u0627\u0621 \u0639\u0627\u062c\u0644 \u0625\u0644\u0649 {target}\u060c {msg}"
         else:
-            full_text = f"نداء موجه إلى {target}، يرجى التوجه إلى قاعة التنسيق أو المكاتب فوراً."
-        title = f"استدعاء: {target}"
+            full_text = f"\u0646\u062f\u0627\u0621 \u0645\u0648\u062c\u0647 \u0625\u0644\u0649 {target}\u060c \u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0648\u062c\u0647 \u0625\u0644\u0649 \u0642\u0627\u0639\u0629 \u0627\u0644\u062a\u0646\u0633\u064a\u0642 \u0623\u0648 \u0627\u0644\u0645\u0643\u0627\u062a\u0628 \u0641\u0648\u0631\u0627\u064b."
+        title = f"Call: {target}"
 
     client_ip = request.client.host if request.client else "Local"
     item = await audio_engine.enqueue(
@@ -194,18 +248,22 @@ async def speak_device_or_person(payload: SpeakCallRequest, request: Request):
         text=full_text,
         source="device_call",
         sender_ip=client_ip,
-        lang=lang
+        lang=detected_lang
     )
-    return {"success": True, "message": "Call initiated" if lang == "en" else "تم إطلاق الاستدعاء في الطابور", "item": item}
+    return {
+        "success": True, 
+        "message": "Call initiated", 
+        "item": item
+    }
 
-# ----------------- Stealth Admin Authentication -----------------
+# ----------------- Admin Authentication -----------------
 
 @app.post("/api/auth/login")
 async def admin_login(payload: LoginRequest):
     if not authenticate_admin(payload.username, payload.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="اسم المستخدم أو كلمة المرور غير صحيحة"
+            detail="Invalid username or password"
         )
     token = create_access_token(payload.username)
     return {"token": token, "username": payload.username, "token_type": "bearer"}
@@ -214,7 +272,7 @@ async def admin_login(payload: LoginRequest):
 async def admin_verify(admin: dict = Depends(require_admin)):
     return {"authenticated": True, "user": admin.get("sub")}
 
-# ----------------- Stealth Admin Settings & Volume -----------------
+# ----------------- Admin Settings & Volume -----------------
 
 @app.get("/api/admin/settings")
 async def admin_get_settings(admin: dict = Depends(require_admin)):
@@ -234,18 +292,27 @@ async def admin_set_volume(payload: VolumeRequest, admin: dict = Depends(require
     vol = await audio_engine.set_volume(payload.volume)
     return {"success": True, "volume": vol}
 
-# ----------------- Stealth Admin Categories CRUD -----------------
+# ----------------- Admin Categories CRUD -----------------
 
 @app.get("/api/admin/categories")
 async def admin_list_categories(admin: dict = Depends(require_admin)):
     categories = load_categories()
+    if not any(c.id == "uncategorized" for c in categories):
+        categories.append(CategoryModel(
+            id="uncategorized",
+            name_ar="Uncategorized",
+            name_en="Uncategorized",
+            icon="Folder",
+            color="cyan",
+            order=99
+        ))
     return sorted(categories, key=lambda c: c.order or 0)
 
 @app.post("/api/admin/categories")
 async def admin_create_category(category: CategoryModel, admin: dict = Depends(require_admin)):
     categories = load_categories()
     if any(c.id == category.id for c in categories):
-        raise HTTPException(status_code=400, detail="Category ID already exists / معرف التصنيف موجود مسبقاً")
+        raise HTTPException(status_code=400, detail="Category ID already exists")
     categories.append(category)
     save_categories(categories)
     return {"success": True, "category": category}
@@ -255,7 +322,7 @@ async def admin_update_category(cat_id: str, updated: CategoryModel, admin: dict
     categories = load_categories()
     idx = next((i for i, c in enumerate(categories) if c.id == cat_id), -1)
     if idx == -1:
-        raise HTTPException(status_code=404, detail="Category not found / التصنيف غير موجود")
+        raise HTTPException(status_code=404, detail="Category not found")
     categories[idx] = updated
     save_categories(categories)
     return {"success": True, "category": updated}
@@ -265,11 +332,11 @@ async def admin_delete_category(cat_id: str, admin: dict = Depends(require_admin
     categories = load_categories()
     filtered = [c for c in categories if c.id != cat_id]
     if len(filtered) == len(categories):
-        raise HTTPException(status_code=404, detail="Category not found / التصنيف غير موجود")
+        raise HTTPException(status_code=404, detail="Category not found")
     save_categories(filtered)
     return {"success": True, "deleted_id": cat_id}
 
-# ----------------- Stealth Admin Presets CRUD -----------------
+# ----------------- Admin Presets CRUD -----------------
 
 @app.get("/api/admin/presets")
 async def admin_list_presets(admin: dict = Depends(require_admin)):
@@ -290,22 +357,29 @@ async def admin_list_presets(admin: dict = Depends(require_admin)):
 async def admin_create_preset(preset: PresetModel, admin: dict = Depends(require_admin)):
     presets = load_presets()
     if any(p.id == preset.id for p in presets):
-        raise HTTPException(status_code=400, detail="Preset ID already exists / المعرف موجود مسبقاً")
-    
-    # Normalize fields
-    if not preset.title_ar and preset.title:
-        preset.title_ar = preset.title
-    if not preset.text_ar and preset.text:
-        preset.text_ar = preset.text
+        raise HTTPException(status_code=400, detail="Preset ID already exists")
+
+    # Unified single title and single text
+    title = preset.title or preset.title_ar or preset.title_en or preset.id
+    text = preset.text or preset.text_ar or preset.text_en or ""
+
+    preset.title = title
+    preset.title_ar = title
+    preset.title_en = title
+    preset.text = text
+    preset.text_ar = text
+    preset.text_en = text
+
+    if not preset.category_id or preset.category_id == "uncategorized":
+        preset.category_id = "uncategorized"
+        preset.category = "Uncategorized"
 
     presets.append(preset)
     save_presets(presets)
-    
-    # Asynchronously trigger cache generation
-    if preset.text_ar:
-        asyncio.create_task(audio_engine.ensure_preset_cached(preset.id, preset.text_ar, "ar"))
-    if preset.text_en:
-        asyncio.create_task(audio_engine.ensure_preset_cached(preset.id, preset.text_en, "en"))
+
+    # Detect language and cache accordingly (Arabic engine if Arabic, English engine if English)
+    detected_lang = detect_language(text)
+    asyncio.create_task(audio_engine.ensure_preset_cached(preset.id, text, detected_lang))
 
     return {"success": True, "preset": preset}
 
@@ -314,21 +388,28 @@ async def admin_update_preset(preset_id: str, updated: PresetModel, admin: dict 
     presets = load_presets()
     idx = next((i for i, p in enumerate(presets) if p.id == preset_id), -1)
     if idx == -1:
-        raise HTTPException(status_code=404, detail="Preset not found / الجملة غير موجودة")
-    
-    if not updated.title_ar and updated.title:
-        updated.title_ar = updated.title
-    if not updated.text_ar and updated.text:
-        updated.text_ar = updated.text
+        raise HTTPException(status_code=404, detail="Preset not found")
+
+    title = updated.title or updated.title_ar or updated.title_en or preset_id
+    text = updated.text or updated.text_ar or updated.text_en or ""
+
+    updated.title = title
+    updated.title_ar = title
+    updated.title_en = title
+    updated.text = text
+    updated.text_ar = text
+    updated.text_en = text
+
+    if not updated.category_id or updated.category_id == "uncategorized":
+        updated.category_id = "uncategorized"
+        updated.category = "Uncategorized"
 
     presets[idx] = updated
     save_presets(presets)
-    
-    # Re-cache both
-    if updated.text_ar:
-        asyncio.create_task(audio_engine.generate_tts(updated.text_ar, PRESETS_DIR / f"{updated.id}_ar.mp3"))
-    if updated.text_en:
-        asyncio.create_task(audio_engine.generate_tts(updated.text_en, PRESETS_DIR / f"{updated.id}_en.mp3"))
+
+    # Re-cache with detected language
+    detected_lang = detect_language(text)
+    asyncio.create_task(audio_engine.generate_tts(text, PRESETS_DIR / f"{updated.id}_{detected_lang}.mp3"))
 
     return {"success": True, "preset": updated}
 
@@ -337,7 +418,7 @@ async def admin_delete_preset(preset_id: str, admin: dict = Depends(require_admi
     presets = load_presets()
     filtered = [p for p in presets if p.id != preset_id]
     if len(filtered) == len(presets):
-        raise HTTPException(status_code=404, detail="Preset not found / الجملة غير موجودة")
+        raise HTTPException(status_code=404, detail="Preset not found")
     save_presets(filtered)
 
     for suffix in ["", "_ar", "_en"]:
@@ -355,11 +436,10 @@ async def admin_rebuild_preset_cache(preset_id: str, admin: dict = Depends(requi
     preset = next((p for p in presets if p.id == preset_id), None)
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
-    
-    if preset.text_ar or preset.text:
-        await audio_engine.generate_tts(preset.text_ar or preset.text, PRESETS_DIR / f"{preset.id}_ar.mp3")
-    if preset.text_en:
-        await audio_engine.generate_tts(preset.text_en, PRESETS_DIR / f"{preset.id}_en.mp3")
+
+    text = preset.text or preset.text_ar or preset.text_en or ""
+    detected_lang = detect_language(text)
+    await audio_engine.generate_tts(text, PRESETS_DIR / f"{preset.id}_{detected_lang}.mp3")
     return {"success": True, "message": f"Cache rebuilt for {preset.title or preset.id}"}
 
 @app.post("/api/admin/presets/rebuild-all-cache")
@@ -367,29 +447,59 @@ async def admin_rebuild_all_cache(admin: dict = Depends(require_admin)):
     presets = load_presets()
     for p in presets:
         try:
-            if p.text_ar or p.text:
-                await audio_engine.generate_tts(p.text_ar or p.text, PRESETS_DIR / f"{p.id}_ar.mp3")
-            if p.text_en:
-                await audio_engine.generate_tts(p.text_en, PRESETS_DIR / f"{p.id}_en.mp3")
+            text = p.text or p.text_ar or p.text_en or ""
+            if text:
+                detected_lang = detect_language(text)
+                await audio_engine.generate_tts(text, PRESETS_DIR / f"{p.id}_{detected_lang}.mp3")
         except Exception as e:
             print(f"Error rebuilding cache for {p.id}: {e}")
     return {"success": True, "message": "All audio caches rebuilt successfully"}
+
+# ----------------- Admin Live Voice Broadcasting (Zero Retention) -----------------
+
+@app.post("/api/admin/broadcast-voice")
+async def admin_broadcast_voice(
+    file: UploadFile = File(...),
+    request: Request = None,
+    admin: dict = Depends(require_admin)
+):
+    """
+    Receives live voice recording from Admin device, broadcasts it directly to speaker,
+    and immediately deletes the file from disk with zero retention.
+    """
+    client_ip = request.client.host if request and request.client else "Admin"
+    suffix = Path(file.filename or "voice.webm").suffix or ".webm"
+    temp_file = TEMP_DIR / f"voice_{uuid.uuid4().hex}{suffix}"
+
+    with open(temp_file, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+
+    # Broadcast to speaker and immediately delete file
+    res = await audio_engine.broadcast_voice_recording(temp_file, sender_ip=client_ip)
+    return {
+        "success": True,
+        "message": "Live voice announcement broadcasted to speaker and securely deleted",
+        "result": res
+    }
+
+# ----------------- Admin Audit Log -----------------
 
 @app.get("/api/admin/audit")
 async def admin_get_audit(admin: dict = Depends(require_admin)):
     audit = load_audit()
     total_calls = len(audit)
-    last_20 = list(reversed(audit))[:20]
-    
+    last_50 = list(reversed(audit))[:50]
+
     sources_count = {}
     for entry in audit:
         s = entry.get("source", "unknown")
         sources_count[s] = sources_count.get(s, 0) + 1
-        
+
     return {
         "total_announcements": total_calls,
         "sources_breakdown": sources_count,
-        "recent_entries": last_20
+        "recent_entries": last_50
     }
 
 @app.delete("/api/admin/audit/{entry_id}")
@@ -406,13 +516,17 @@ async def admin_clear_audit(admin: dict = Depends(require_admin)):
     save_audit([])
     return {"success": True, "message": "All audit records cleared successfully"}
 
+# ----------------- Admin Testing Tools -----------------
+
 @app.post("/api/admin/test-chime")
 async def admin_test_chime(payload: TestChimeRequest, admin: dict = Depends(require_admin)):
     tone_file = CHIMES_DIR / f"{payload.tone}.mp3"
     if not tone_file.exists():
         raise HTTPException(status_code=404, detail="Chime file not found")
-    asyncio.create_task(audio_engine.play_audio_file(tone_file))
-    return {"success": True, "message": f"Playing {payload.tone} chime"}
+    settings = load_settings()
+    chime_vol = getattr(settings, 'chime_volume', 80)
+    asyncio.create_task(audio_engine.play_audio_file(tone_file, volume=chime_vol))
+    return {"success": True, "message": f"Playing {payload.tone} chime at {chime_vol}% volume"}
 
 @app.post("/api/admin/test-voice")
 async def admin_test_voice(payload: TestVoiceRequest, admin: dict = Depends(require_admin)):
@@ -420,10 +534,10 @@ async def admin_test_voice(payload: TestVoiceRequest, admin: dict = Depends(requ
     sample_text = payload.text
     if not sample_text:
         if lang == "ar":
-            sample_text = "مرحباً بكم، هذا اختبار مباشر لجودة ونبرة الصوت المختار في نظام كيرنال بينغ."
+            sample_text = "\u0645\u0631\u062d\u0628\u0627\u064b \u0628\u0643\u0645\u060c \u0647\u0630\u0627 \u0627\u062e\u062a\u0628\u0627\u0631 \u0645\u0628\u0627\u0634\u0631 \u0644\u062c\u0648\u062f\u0629 \u0648\u0646\u0628\u0631\u0629 \u0627\u0644\u0635\u0648\u062a \u0627\u0644\u0645\u062e\u062a\u0627\u0631 \u0641\u064a \u0646\u0638\u0627\u0645 \u0643\u064a\u0631\u0646\u0627\u0644 \u0628\u064a\u0646\u063a."
         else:
             sample_text = "Hello, this is a live audio test for the selected voice model in Kernel Ping."
-    
+
     test_file = TEMP_DIR / f"test_{uuid.uuid4().hex[:8]}.mp3"
     try:
         await audio_engine.generate_tts(sample_text, test_file, voice=payload.voice)

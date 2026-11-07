@@ -26,19 +26,6 @@
     "color": "blue"
   },
   {
-    "id": "code_review",
-    "category_id": "meetings",
-    "category": "اجتماعات وتنسيق",
-    "title": "مراجعة الكود الجماعية",
-    "title_ar": "مراجعة الكود الجماعية",
-    "title_en": "Code Review Session",
-    "text": "فريق التطوير، يرجى التجمع لمراجعة الكود والتحديثات الجديدة.",
-    "text_ar": "فريق التطوير، يرجى التجمع لمراجعة الكود والتحديثات الجديدة.",
-    "text_en": "Development team, please gather for the collaborative code review session.",
-    "icon": "Code",
-    "color": "indigo"
-  },
-  {
     "id": "retro_meeting",
     "category_id": "meetings",
     "category": "اجتماعات وتنسيق",
@@ -269,6 +256,19 @@
     "text": "no",
     "text_ar": "no",
     "text_en": "ok",
+    "icon": "Volume2",
+    "color": "cyan"
+  },
+  {
+    "id": "ss",
+    "category_id": "uncategorized",
+    "category": "Uncategorized",
+    "title": "hello",
+    "title_ar": "hello",
+    "title_en": "hello",
+    "text": "Kernel Crew , good morning!",
+    "text_ar": "Kernel Crew , good morning!",
+    "text_en": "Kernel Crew , good morning!",
     "icon": "Volume2",
     "color": "cyan"
   }

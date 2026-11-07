@@ -4,11 +4,11 @@
 
 ---
 
-## 🌐 1. النقاط العامة (Public Endpoints — لا تتطلب مصادقة)
+## 🌐 1. النقاط العامة (Public Endpoints — متاحة لكافة أعضاء المكتب)
 
-### 🔹 فحص حالة النظام والبفلة
+### 🔹 فحص حالة النظام وكرت الصوت والبفلة
 - **الرابط:** `GET /api/status`
-- **الوصف:** إرجاع الحالة اللحظية للبفلة، العنصر قيد النطق، طول الطابور، ومستوى الصوت.
+- **الوصف:** إرجاع الحالة اللحظية للبفلة أو كرت الصوت المدمج، مخرج الصوت المتصل، العنصر قيد النطق، طول الطابور، ومستوى الصوت ومهلة التكرار المتبقية.
 - **مثال الاستجابة (200 OK):**
 ```json
 {
@@ -16,135 +16,191 @@
   "current_item": null,
   "queue_length": 0,
   "server_volume": 85,
+  "cooldown_remaining": 0,
+  "audio_device": {
+    "device_name": "HD-Audio Generic (ALC256 Analog)",
+    "card_type": "internal",
+    "is_bluetooth": false,
+    "is_external_speaker": false,
+    "label_ar": "صوت الجهاز جاهز",
+    "label_en": "Device Audio Ready",
+    "card_details": "كرت الصوت المدمج بالجهاز (HD-Audio Generic (ALC256 Analog))"
+  },
   "settings": {
     "spam_cooldown_enabled": true,
     "cooldown_seconds": 15,
     "pre_chime_enabled": true,
     "chime_tone": "airport",
+    "chime_volume": 80,
     "bluetooth_wakeup_enabled": true,
+    "server_volume": 85,
     "tts_voice_ar": "ar-SY-LaithNeural",
-    "tts_voice_en": "en-US-BrianMultilingualNeural",
-    "smart_pronunciation_enabled": true
+    "tts_voice_en": "en-US-AriaNeural"
   }
 }
 ```
 
 ---
 
-### 🔹 استعراض تصنيفات النداءات
-- **الرابط:** `GET /api/categories`
-- **الوصف:** استرجاع مصفوفة التصنيفات مرتبة حسب الحقل `order`.
-
----
-
-### 🔹 استعراض الجمل الإذاعية الثابتة
-- **الرابط:** `GET /api/presets`
-- **الوصف:** إرجاع قائمة كافة الجمل المصنفة مع نصوصها وأيقوناتها.
-
----
-
-### 🔹 إطلاق نداء من الجمل الثابتة
-- **الرابط:** `POST /api/speak/preset/{preset_id}`
-- **الوصف:** إضافة الجملة المحددة إلى طابور الإذاعة الفوري وتشغيل ملفها الصوتي المحلي.
-- **رموز الاستجابة:**
-  - `200 OK`: تم إدراج النداء بنجاح.
-  - `429 Too Many Requests`: في حال تفعيل مانع الإزعاج ومحاولة الإرسال قبل انقضاء المهلة.
-  - `404 Not Found`: الجملة غير موجودة.
-
----
-
-### 🔹 نطق رسالة حرة عبر الذكاء الاصطناعي
-- **الرابط:** `POST /api/speak/custom`
-- **محتوى الطلب (Body JSON):**
+### 🔹 التحكم بمستوى صوت الجهاز للأعضاء
+- **الرابط:** `POST /api/volume`
+- **الوصف:** يتيح لأعضاء المكتب ضبط مستوى صوت مخرج الصوت المباشر من نافذة إعدادات الصوت في الشريط العلوي.
+- **جسم الطلب (Request Body):**
 ```json
 {
-  "text": "تذكير للفريق، موعد اجتماع السبرينت بعد قليل",
-  "title": "تذكير السبرينت",
-  "lang": "ar"
+  "volume": 75
 }
 ```
-- **الشروط:** النص مطلوب، الحد الأقصى 400 حرف.
-
----
-
-### 🔹 تشكيل النص العربي آلياً (AI Tashkeel)
-- **الرابط:** `POST /api/tashkeel`
-- **محتوى الطلب (Body JSON):**
-```json
-{
-  "text": "نذكر الجميع ببدء صلاة الظهر بعد قليل"
-}
-```
-- **مثال الاستجابة (200 OK):**
+- **الاستجابة:**
 ```json
 {
   "success": true,
-  "original": "نذكر الجميع ببدء صلاة الظهر بعد قليل",
-  "diacritized": "نَذْكُرُ الْجَمِيعَ بِبَدْءِ صَلَاَةِ الظُّهْرِ بَعْد قَلِيلٍ"
+  "volume": 75
 }
 ```
 
 ---
 
-## 🔒 2. نقاط الإدارة المخفية (Stealth Admin Endpoints)
-> تتطلب جميع هذه النقاط (باستثناء تسجيل الدخول) تمرير الترويسة:
-> `Authorization: Bearer <token>`
-
-### 🔹 تسجيل دخول الأدمن
-- **الرابط:** `POST /api/auth/login`
-- **المدخلات:** `{"username": "admin", "password": "..."}`
-- **الاستجابة:** إرجاع توكن JWT مشفر صالح لمدة 72 ساعة.
+### 🔹 استعراض التصنيفات المتاحة
+- **الرابط:** `GET /api/categories`
+- **الوصف:** إرجاع مصفوفة التصنيفات المفعلة لتنظيم الجمل بالواجهة (بما فيها تصنيف "غير مصنف").
 
 ---
 
-### 🔹 التحقق من صلاحية الجلسة
-- **الرابط:** `GET /api/admin/verify`
+### 🔹 استعراض الجمل الإذاعية الجاهزة
+- **الرابط:** `GET /api/presets`
+- **الوصف:** إرجاع كافة الجمل المخزنة مع عناوينها ونصوصها الموحدة.
 
 ---
 
-### 🔹 جلب وحفظ إعدادات النظام
-- **جلب الإعدادات:** `GET /api/admin/settings`
-- **تحديث الإعدادات:** `POST /api/admin/settings`
-- **تعديل الصوت السريع:** `POST /api/admin/volume` مع Body: `{"volume": 85}`
+### 🔹 إطلاق نداء جملة جاهزة
+- **الرابط:** `POST /api/speak/preset/{preset_id}`
+- **الوصف:** إضافة الجملة إلى طابور النطق مع مراعاة مهلة مانع الإزعاج. يحدد النظام لغة النطق آلياً بناءً على محتوى الجملة.
+- **كود الخطأ عند وجود مهلة نشطة:** `429 Too Many Requests`.
 
 ---
 
-### 🔹 تجربة نغمات وأصوات النماذج الحية
-- **تجربة النغمة:** `POST /api/admin/test-chime` — `{"tone": "airport"}`
-- **تجربة الصوت:** `POST /api/admin/test-voice` — `{"voice": "ar-SY-LaithNeural", "lang": "ar"}`
+### 🔹 نطق نص حر مخصص (Free Text Broadcast)
+- **الرابط:** `POST /api/speak/custom`
+- **الوصف:** إرسال نص مخصص ليتم تحويله إلى كلام مسموع بالمكتب عبر الذكاء الاصطناعي مع الكشف التلقائي عن اللغة وتطبيق مهلة التكرار الموحدة.
+- **جسم الطلب:**
+```json
+{
+  "title": "تذكير عام",
+  "text": "يرجى من جميع الزملاء مراجعة المهام المسندة إليهم قبل نهاية اليوم.",
+  "lang": "ar"
+}
+```
 
 ---
 
-### 🔹 إدارة التصنيفات (Categories CRUD)
-- `GET /api/admin/categories` — قائمة التصنيفات.
-- `POST /api/admin/categories` — إنشاء تصنيف جديد.
-- `PUT /api/admin/categories/{cat_id}` — تعديل تصنيف قائم.
-- `DELETE /api/admin/categories/{cat_id}` — حذف تصنيف.
+### 🔹 التشكيل الآلي للنصوص العربية
+- **الرابط:** `POST /api/tashkeel`
+- **الوصف:** ضبط الحركات والإعراب التلقائي للنصوص العربية لضمان سلامة النطق ومخارج الحروف.
+- **جسم الطلب:**
+```json
+{
+  "text": "السلام عليكم ورحمة الله وبركاته"
+}
+```
 
 ---
 
-### 🔹 إدارة الجمل والتخزين الصوتي (Presets CRUD)
-- `GET /api/admin/presets` — قائمة الجمل مع حالة الكاش (`cached_ar`, `cached_en`).
-- `POST /api/admin/presets` — إنشاء جملة جديدة مع توليد فوري لملف الـ MP3.
-- `PUT /api/admin/presets/{preset_id}` — تحديث نصوص الجملة وتحديث ملف الصوت.
-- `DELETE /api/admin/presets/{preset_id}` — حذف الجملة وملفاتها الصوتية من القرص.
-- `POST /api/admin/presets/{preset_id}/rebuild-cache` — إعادة توليد صوت جملة محددة.
-- `POST /api/admin/presets/rebuild-all-cache` — إعادة توليد كافة الأصوات بالكامل.
+## 🔒 2. نقاط الإدارة المشفرة (Admin Protected Endpoints)
+
+تتطلب جميع هذه النقاط ترويسة مصادقة صالحة:
+`Authorization: Bearer <ADMIN_JWT_TOKEN>`
+
+### 🔹 تسجيل فويس مباشر وبثه للبفلة (Zero Retention Voice Broadcast)
+- **الرابط:** `POST /api/admin/broadcast-voice`
+- **نوع المحتوى (Content-Type):** `multipart/form-data`
+- **المعلمات:** `file` (ملف الصوت المسجل من متصفح الإدارة بصيغة webm أو ogg أو wav).
+- **السلوك الداخلي:**
+  1. استلام الملف وحفظه بمسار مؤقت فريد.
+  2. تشغيل نغمة التنبيه المسبقة (بالصوت المحدد للنغمة).
+  3. تشغيل التسجيل الصوتي عبر مكبر الصوت فورياً.
+  4. **حذف الملف فور انتهاء النطق نهائياً من القرص الصلب دون أي تخزين.**
+  5. تدوين حركة البث في سجل التدقيق بصيغة `[تسجيل صوتي مباشر من الإدارة - لم يتم حفظه]`.
+- **الاستجابة:**
+```json
+{
+  "success": true,
+  "message": "Live voice announcement broadcasted to speaker and securely deleted",
+  "result": {
+    "id": "e812a4b9",
+    "status": "broadcasted"
+  }
+}
+```
 
 ---
 
-### 🔹 سجل العمليات والتدقيق (Activity Audit)
-- `GET /api/admin/audit` — استرجاع إحصائيات الإذاعة وآخر العمليات.
-- `DELETE /api/admin/audit/{entry_id}` — حذف عملية محددة من السجل.
-- `DELETE /api/admin/audit` — مسح وتصفير سجل العمليات بالكامل.
+### 🔹 استعراض وتحديث إعدادات الصوت
+- **الاستعراض:** `GET /api/admin/settings`
+- **التحديث:** `POST /api/admin/settings`
+- **الحقول المدعومة:**
+```json
+{
+  "spam_cooldown_enabled": true,
+  "cooldown_seconds": 15,
+  "pre_chime_enabled": true,
+  "chime_tone": "airport",
+  "chime_volume": 80,
+  "bluetooth_wakeup_enabled": true,
+  "server_volume": 85,
+  "tts_voice_ar": "ar-SY-LaithNeural",
+  "tts_voice_en": "en-US-AriaNeural",
+  "speech_rate": "+0%",
+  "speech_pitch": "+0Hz"
+}
+```
+
+---
+
+### 🔹 تجربة نغمة التنبيه
+- **الرابط:** `POST /api/admin/test-chime`
+- **جسم الطلب:**
+```json
+{
+  "tone": "airport"
+}
+```
+*يتم تشغيل النغمة بمستوى صوت النغمات المحدد في الإعدادات (`chime_volume`).*
+
+---
+
+### 🔹 إدارة الجمل (Presets CRUD)
+- **إضافة جملة جديدة:** `POST /api/admin/presets`
+  - تقبل عنواناً واحداً ونصاً واحداً، وتحدد تصنيف "غير مصنف" اختيارياً:
+```json
+{
+  "id": "standup_alert",
+  "category_id": "uncategorized",
+  "title": "بدء الاجتماع الصباحي",
+  "text": "فريق العمل، يرجى التوجه لقاعة الاجتماعات لبدء المزامنة الصباحية.",
+  "icon": "Users",
+  "color": "cyan"
+}
+```
+- **تحديث جملة:** `PUT /api/admin/presets/{preset_id}`
+- **حذف جملة:** `DELETE /api/admin/presets/{preset_id}`
+- **إعادة بناء كاش الصوت لجملة:** `POST /api/admin/presets/{preset_id}/rebuild-cache`
+- **إعادة بناء كافة الكاشات:** `POST /api/admin/presets/rebuild-all-cache`
+
+---
+
+### 🔹 سجل العمليات والتدقيق وحذف السجلات
+- **استعراض السجل:** `GET /api/admin/audit`
+- **حذف سجل فردي بعد التأكيد:** `DELETE /api/admin/audit/{entry_id}`
+- **مسح كامل السجلات بعد التأكيد:** `DELETE /api/admin/audit`
 
 ---
 
 ## ⚡ 3. قناة الـ WebSocket الحية (`/ws`)
 
-- **الرابط:** `ws://<server-ip>:8000/ws`
-- **آلية العمل:**
-  1. بمجرد اتصال العميل، يُرسل الخادم حالة النظام اللحظية كاملة.
-  2. عند حدوث أي حدث صوتي (بدء كلام، انتهاء كلام، إضافة للطابور، أو تغيير لمستوى الصوت في السيرفر)، يُبث الحدث تلقائياً لكافة المتصفحات المتصلة فوراً.
-  3. يرسل المتصفح نبضة `ping` كل 15 ثانية، ويرد الخادم بـ `pong` للحفاظ على استقرار الاتصال.
-
+- **الرابط:** `ws://kernelping.local:8000/ws`
+- **الوظيفة:** مزامنة لحظية بين الخادم وكافة المتصفحات المفتوحة.
+- **الرسائل المرسلة:**
+  - يتم بث كائن حالة النظام الكامل فور حدوث أي نداء، أو تغير في مستوى الصوت، أو بدء/انتهاء مهلة التكرار، أو تغير حالة كرت الصوت.
+- **نبض الحياة (Keep-Alive):**
+  - يرسل العميل رسالة نصية `"ping"` كل 15 ثانية، ويرد الخادم بـ `"pong"`.

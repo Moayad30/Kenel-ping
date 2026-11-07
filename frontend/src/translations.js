@@ -1,10 +1,12 @@
 export const translations = {
   ar: {
-    // Header
+    // Header & Audio Status
     appName: "Kernel Ping",
     appSubtitle: "نظام النداء والإذاعة الصوتي لمكتب كيرنال تك",
     badgeLabel: "كيرنال بينغ",
-    statusReady: "البفلة جاهزة",
+    statusReady: "صوت الجهاز جاهز",
+    statusSpeakerReady: "البفلة جاهزة",
+    statusDeviceReady: "صوت الجهاز جاهز",
     statusSpeaking: "قيد النطق الآن بالمكتب",
     statusQueued: "في الطابور",
     volume: "مستوى الصوت",
@@ -12,9 +14,24 @@ export const translations = {
     themeToggle: "تبديل المظهر",
     langToggle: "English",
 
+    // Device Sound Settings Popover / Modal
+    deviceAudioSettingsTitle: "التحكم بإعدادات صوت الجهاز ومخرجات الصوت",
+    activeSoundCardLabel: "كرت الصوت المتصل حالياً:",
+    soundCardInternal: "كرت الصوت المدمج بالجهاز (Internal Audio Card)",
+    soundCardBluetooth: "مكبر صوت خارجي عبر البلوتوث (Bluetooth Speaker)",
+    soundCardUsb: "مخرج صوت USB خارجي (USB Audio Device)",
+    soundCardHdmi: "مخرج صوت الشاشة (HDMI Audio)",
+    audioDestinationNotice: "الصوت يخرج حالياً من كرت الصوت الموضح أعلاه.",
+    volumeSliderLabel: "مستوى صوت الجهاز:",
+    quickVolumeLabel: "مستويات سريعة:",
+    muteBtn: "كتم الصوت",
+    unmuteBtn: "تشغيل الصوت",
+    closeBtn: "إغلاق",
+
     // Search & Filter
     searchPlaceholder: "ابحث عن جملة، تنبيه، أو أمر إذاعي...",
     allCategories: "الكل",
+    uncategorized: "غير مصنف",
     presetsCount: "جملة متاحة للاستجابة الفورية",
 
     // Presets Grid
@@ -27,11 +44,12 @@ export const translations = {
     // Custom Speech Box
     freeSpeechTitle: "صندوق النطق الحر",
     freeSpeechSubtitle: "تحويل أي نص إلى كلام مسموع بالمكتب عبر الذكاء الاصطناعي",
-    freeSpeechPlaceholder: "اكتب رسالتك هنا ليتم نطقها في ارجاء المكتب",
+    freeSpeechPlaceholder: "اكتب رسالتك هنا ليتم نطقها في ارجاء المكتب...",
     quickSuggestions: "اقتراحات سريعة:",
     charLimit: "حرف",
     speakNowButton: "نطق الرسالة الآن",
     speakingSubmitting: "جاري الإرسال...",
+    cooldownWaitBtn: "يرجى الانتظار ({seconds} ثانية)",
     tashkeelBtn: "تشكيل النص بالذكاء الاصطناعي ✨",
     tashkeelSuccess: "تم تشكيل النص بدقة عالية بنجاح ✨",
     tashkeelProcessing: "جاري التشكيل...",
@@ -67,7 +85,7 @@ export const translations = {
     footerText: "نظام Kernel Ping © 2026 - بيئة الاتصال الصوتي الداخلي لمكتب كيرنال تك",
 
     // Admin Common
-    adminTitle: "Stealth Admin Center",
+    adminTitle: "لوحة تحكم كيرنال بينغ",
     adminSubtitle: "مركز الإدارة والتحكم بهندسة الصوت والأنظمة الداخلية",
     adminBadge: "لوحة تحكم مشفرة",
     backToPublic: "الواجهة العامة",
@@ -80,30 +98,48 @@ export const translations = {
     status: "الحالة",
 
     // Admin Tabs
+    tabLiveWorkspace: "الواجهة الرئيسية والبث المباشر",
     tabAudio: "إعدادات وهندسة الصوت",
     tabCategories: "إدارة التصنيفات",
-    tabPresets: "إدارة الجمل والتخزين (Presets CRUD)",
+    tabPresets: "إدارة الجمل والتخزين (Presets)",
     tabAudit: "سجل العمليات والتدقيق (Activity Audit)",
 
+    // Admin Live Voice Broadcast
+    adminVoiceTitle: "تسجيل فويس مباشر للبفلة (Live Voice Broadcast)",
+    adminVoiceSubtitle: "سجل رسالة صوتية مباشرة من جهازك لبثها عبر البفلة فوراً مع حذفها نهائياً وعدم حفظها إطلاقاً",
+    startRecordBtn: "بدء التسجيل",
+    pauseRecordBtn: "إيقاف مؤقت",
+    resumeRecordBtn: "استئناف التسجيل",
+    stopRecordBtn: "إنهاء التسجيل",
+    previewVoiceBtn: "معاينة واستماع",
+    discardVoiceBtn: "إلغاء وإعادة التسجيل",
+    broadcastVoiceBtn: "بث الفويس إلى البفلة الآن 📢",
+    recordingInProgress: "جاري التسجيل الصوتي المباشر...",
+    recordingPaused: "التسجيل متوقف مؤقتاً",
+    recordingFinished: "تم إنهاء التسجيل - يمكنك الاستماع للمعاينة أو البث فوراً للبفلة",
+    broadcastingVoice: "جاري إرسال وبث الصوت إلى البفلة...",
+    voiceBroadcastSuccess: "تم بث الفويس بنجاح عبر البفلة ومسح الملف نهائياً 🔊",
+    zeroRetentionNotice: "ميزة الأمان والخصوصية: لا يتم الاحتفاظ بالتسجيل الصوتي نهائياً ويُحذف فور انتهاء النطق.",
+    micAccessError: "تعذر فتح الميكروفون. يرجى السماح للمتصفح بالوصول إلى الميكروفون.",
+
     // Admin Audio Settings
-    serverVolumeTitle: "صوت السيرفر الرئيسي (PipeWire / WirePlumber)",
-    serverVolumeDesc: "التحكم المباشر بمستوى صوت مخرج الصوت الافتراضي (Default Sink) بسلاسة لسلك AUX أو البلوتوث.",
-    voiceSettingsTitle: "أصوات النطق وتقليل أخطاء الكلام (TTS & Pronunciation)",
+    serverVolumeTitle: "صوت السيرفر الرئيسي ومخرج الصوت",
+    serverVolumeDesc: "التحكم المباشر بمستوى صوت مخرج الصوت المكتشف حالياً (سلك AUX أو كرت الصوت المدمج أو البلوتوث).",
+    voiceSettingsTitle: "أصوات النطق الذكية (TTS Voice Engine)",
     voiceArLabel: "الصوت العربي الأساسي (Arabic Voice):",
     voiceEnLabel: "الصوت الإنجليزي الأساسي (English Voice):",
     testVoiceBtn: "تجربة الصوت ▶",
     testingVoice: "جاري التجربة...",
-    smartPronunciationLabel: "المعالج الصوتي الذكي (Smart Pronunciation Normalizer):",
-    smartPronunciationDesc: "توسيع الاختصارات البرمجية الشائعة (CI/CD, PR, DevOps, API) وإزالة الرموز التعبيرية تلقائياً لمنع أي تعثر بالنطق.",
     chimeSettingsTitle: "نغمات التنبيه وإيقاظ البلوتوث (Chimes & Bluetooth)",
     preChimeLabel: "تفعيل نغمة التنبيه المسبقة (Pre-Announcement Chime)",
     preChimeDesc: "تشغيل نغمة مميزة لجذب الانتباه قبل بدء الكلام",
     chimeToneLabel: "اختيار نوع النغمة:",
+    chimeVolumeLabel: "مستوى صوت النغمة:",
     testTone: "تجربة النغمة ▶",
     bluetoothWakeupLabel: "وضع إيقاظ البلوتوث الاستباقي (Bluetooth Wake-up)",
     bluetoothWakeupDesc: "إرسال نغمة ومهلة 400ms صمت لتنشيط مكبر الصوت A2DP ومستقبل البلوتوث قبل نطق الكلمات",
     cooldownSettingsTitle: "مانع الإزعاج والتكرار (Spam Cooldown)",
-    cooldownToggleLabel: "تفعيل مانع الإزعاج بين النداءات",
+    cooldownToggleLabel: "تفعيل مانع الإزعاج بين النداءات (يطبق على الجمل والنطق الحر)",
     cooldownDurationLabel: "مهلة التكرار المحددة:",
     secondsUnit: "ثانية",
 
@@ -122,10 +158,10 @@ export const translations = {
     editCategoryModalTitle: "تعديل التصنيف",
     confirmDeleteCategory: "هل أنت متأكد من حذف هذا التصنيف؟",
 
-    // Admin Presets CRUD
-    presetsAdminTitle: "إدارة الجمل والتخزين المسبق (Audio Caching)",
-    presetsAdminDesc: "توليد ملفات MP3 مسبقاً بزمن استجابة صفر ودون الاعتماد على الإنترنت",
-    rebuildAllCacheBtn: "إعادة توليد وتخزين كافة الأصوات",
+    // Admin Presets CRUD (Simplified: Single Title, Single Text, Uncategorized)
+    presetsAdminTitle: "إدارة الجمل والتخزين المسبق (Presets)",
+    presetsAdminDesc: "إدارة الجمل الجاهزة مع اختيار اللغة التلقائي وتحديد كرت الصوت والمحرك المناسب",
+    rebuildAllCacheBtn: "إعادة بناء أصوات الجمل",
     addPresetBtn: "إضافة جملة جديدة",
     presetIdCol: "المعرف (ID)",
     presetTitleCol: "العنوان",
@@ -137,14 +173,26 @@ export const translations = {
     addPresetModalTitle: "إضافة جملة نداء جديدة",
     editPresetModalTitle: "تعديل جملة النداء",
     rebuildPresetCacheBtn: "إعادة بناء الصوت",
+    singleTitleLabel: "عنوان الجملة:",
+    singleTitlePlaceholder: "مثال: تذكير الاجتماع الصباحي",
+    singleTextLabel: "نص النطق المسموع:",
+    singleTextPlaceholder: "اكتب النص الذي سينطقه النظام في المكتب...",
+    detectedEngineLabel: "المحرك الصوتي المكتشف تلقائياً:",
+    engineArNotice: "اللغة عربية -> سيتم استخدام المحرك الصوتي العربي",
+    engineEnNotice: "English Language -> English Neural Engine will be used",
 
-    // Admin Audit
+    // Admin Audit & Delete Confirmation Dialog
     auditTitle: "سجل العمليات والتدقيق اللحظي (Audit Trail)",
     totalCalls: "إجمالي النداءات المنفذة",
     presetCalls: "نداءات الجمل الثابتة",
     customCalls: "النطق الحر",
     clearAllAuditBtn: "مسح السجل بالكامل",
-    confirmClearAudit: "هل أنت متأكد من رغبتك في حذف كافة سجلات العمليات؟ لا يمكن التراجع عن هذا الإجراء.",
+    confirmDeleteAuditTitle: "تأكيد حذف السجل",
+    confirmDeleteAuditMessage: "هل أنت متأكد من رغبتك في حذف هذا السجل بشكل نهائي؟ لا يمكن التراجع عن هذه العملية.",
+    confirmClearAuditTitle: "تأكيد مسح كافة السجلات",
+    confirmClearAuditMessage: "هل أنت متأكد من مسح كافة سجلات العمليات والتدقيق بالكامل؟",
+    confirmDeleteBtn: "نعم، احذف السجل",
+    confirmClearAllBtn: "نعم، امسح كل السجلات",
     deleteEntryBtn: "حذف السجل",
     auditTimeCol: "التوقيت",
     auditTitleCol: "العنوان",
@@ -166,11 +214,13 @@ export const translations = {
   },
 
   en: {
-    // Header
+    // Header & Audio Status
     appName: "Kernel Ping",
     appSubtitle: "Office Public Address & Voice Broadcast System",
     badgeLabel: "PA System",
-    statusReady: "Speaker Ready",
+    statusReady: "Device Audio Ready",
+    statusSpeakerReady: "Speaker Ready",
+    statusDeviceReady: "Device Audio Ready",
     statusSpeaking: "Broadcasting Now",
     statusQueued: "In Queue",
     volume: "Volume",
@@ -178,9 +228,24 @@ export const translations = {
     themeToggle: "Toggle Theme",
     langToggle: "العربية",
 
+    // Device Sound Settings Popover / Modal
+    deviceAudioSettingsTitle: "Device Audio & Output Card Settings",
+    activeSoundCardLabel: "Active Audio Sound Card:",
+    soundCardInternal: "Internal Device Audio Card (Motherboard / Built-in)",
+    soundCardBluetooth: "External Bluetooth Speaker",
+    soundCardUsb: "External USB Audio Card",
+    soundCardHdmi: "Display HDMI Audio",
+    audioDestinationNotice: "Audio is currently routed through the hardware card listed above.",
+    volumeSliderLabel: "Device Master Volume:",
+    quickVolumeLabel: "Quick Presets:",
+    muteBtn: "Mute Audio",
+    unmuteBtn: "Unmute Audio",
+    closeBtn: "Close",
+
     // Search & Filter
     searchPlaceholder: "Search announcements, alerts, or keywords...",
     allCategories: "All",
+    uncategorized: "Uncategorized",
     presetsCount: "presets ready for instant broadcast",
 
     // Presets Grid
@@ -193,11 +258,12 @@ export const translations = {
     // Custom Speech Box
     freeSpeechTitle: "Text-to-Speech Broadcast",
     freeSpeechSubtitle: "Convert any text into crisp office audio using Neural AI",
-    freeSpeechPlaceholder: "Type your message here to be announced across the office",
+    freeSpeechPlaceholder: "Type your message here to be announced across the office...",
     quickSuggestions: "Quick Templates:",
     charLimit: "chars",
     speakNowButton: "Speak Announcement",
     speakingSubmitting: "Dispatching...",
+    cooldownWaitBtn: "Please wait ({seconds}s)",
     tashkeelBtn: "AI Diacritize (Tashkeel) ✨",
     tashkeelSuccess: "Arabic text diacritized successfully ✨",
     tashkeelProcessing: "Diacritizing...",
@@ -233,7 +299,7 @@ export const translations = {
     footerText: "Kernel Ping System © 2026 — Internal Audio Communication for Kernel Tech",
 
     // Admin Common
-    adminTitle: "Stealth Admin Center",
+    adminTitle: "Kernel Ping Operations Center",
     adminSubtitle: "Audio Engine, Presets CRUD & Security Audit",
     adminBadge: "Encrypted Control Center",
     backToPublic: "Public Workspace",
@@ -246,30 +312,48 @@ export const translations = {
     status: "Status",
 
     // Admin Tabs
+    tabLiveWorkspace: "Main Workspace & Live Broadcast",
     tabAudio: "Audio Engine & Controls",
     tabCategories: "Categories Management",
     tabPresets: "Presets CRUD & Caching",
     tabAudit: "Activity Audit Trail",
 
+    // Admin Live Voice Broadcast
+    adminVoiceTitle: "Live Voice Recording & Speaker Broadcast",
+    adminVoiceSubtitle: "Record voice directly from your device and broadcast to the office speaker with immediate zero-retention deletion",
+    startRecordBtn: "Start Recording",
+    pauseRecordBtn: "Pause",
+    resumeRecordBtn: "Resume Recording",
+    stopRecordBtn: "Stop Recording",
+    previewVoiceBtn: "Preview Audio",
+    discardVoiceBtn: "Discard & Re-record",
+    broadcastVoiceBtn: "Broadcast to Speaker Now 📢",
+    recordingInProgress: "Live recording in progress...",
+    recordingPaused: "Recording paused",
+    recordingFinished: "Recording finished — preview or broadcast immediately",
+    broadcastingVoice: "Broadcasting voice recording to speaker...",
+    voiceBroadcastSuccess: "Voice recording broadcasted and immediately deleted from storage 🔊",
+    zeroRetentionNotice: "Zero Retention Guarantee: Voice recordings are purged immediately after playback for complete privacy.",
+    micAccessError: "Microphone access denied. Please grant microphone permission in your browser.",
+
     // Admin Audio Settings
-    serverVolumeTitle: "Server Master Volume (PipeWire / WirePlumber)",
-    serverVolumeDesc: "Direct control over default audio sink volume, compatible with AUX cable and Bluetooth A2DP.",
+    serverVolumeTitle: "Server Output & Hardware Sound Card",
+    serverVolumeDesc: "Direct control over detected audio output card volume (AUX cable, internal card, or Bluetooth speaker).",
     voiceSettingsTitle: "Neural Voices & Phonetic Normalization (TTS)",
     voiceArLabel: "Primary Arabic Voice:",
     voiceEnLabel: "Primary English Voice:",
     testVoiceBtn: "Test Voice ▶",
     testingVoice: "Testing...",
-    smartPronunciationLabel: "Smart Phonetic Normalizer:",
-    smartPronunciationDesc: "Expands tech acronyms (CI/CD, PR, DevOps, API) and strips emojis to prevent speech glitches.",
     chimeSettingsTitle: "Chimes & Bluetooth Wake-up",
     preChimeLabel: "Pre-Announcement Attention Chime",
     preChimeDesc: "Plays a distinctive tone to catch attention before speech starts",
     chimeToneLabel: "Select Chime Tone:",
+    chimeVolumeLabel: "Chime Volume Level:",
     testTone: "Test Chime ▶",
     bluetoothWakeupLabel: "Bluetooth Wake-up Ping / Delay",
     bluetoothWakeupDesc: "Plays tone followed by 400ms silence to un-mute A2DP Bluetooth sinks before words begin",
     cooldownSettingsTitle: "Spam Cooldown Protection",
-    cooldownToggleLabel: "Enable anti-spam cooldown between broadcasts",
+    cooldownToggleLabel: "Enable anti-spam cooldown between broadcasts (applies to presets and free text)",
     cooldownDurationLabel: "Cooldown duration:",
     secondsUnit: "seconds",
 
@@ -288,9 +372,9 @@ export const translations = {
     editCategoryModalTitle: "Edit Category",
     confirmDeleteCategory: "Are you sure you want to delete this category?",
 
-    // Admin Presets CRUD
+    // Admin Presets CRUD (Simplified: Single Title, Single Text, Uncategorized)
     presetsAdminTitle: "Presets Management & Audio Caching",
-    presetsAdminDesc: "Pre-generated zero-latency MP3 files for instant offline office broadcasts",
+    presetsAdminDesc: "Pre-generated zero-latency audio files with auto engine detection",
     rebuildAllCacheBtn: "Rebuild All Audio Caches",
     addPresetBtn: "Add New Preset",
     presetIdCol: "Preset ID",
@@ -303,14 +387,26 @@ export const translations = {
     addPresetModalTitle: "Add New Preset",
     editPresetModalTitle: "Edit Preset",
     rebuildPresetCacheBtn: "Rebuild Audio",
+    singleTitleLabel: "Announcement Title:",
+    singleTitlePlaceholder: "e.g., Morning Meeting Reminder",
+    singleTextLabel: "Spoken Speech Text:",
+    singleTextPlaceholder: "Enter the announcement text to be spoken by the system...",
+    detectedEngineLabel: "Auto-detected Voice Engine:",
+    engineArNotice: "Arabic text detected -> Arabic Neural Engine will be used",
+    engineEnNotice: "English text detected -> English Neural Engine will be used",
 
-    // Admin Audit
+    // Admin Audit & Delete Confirmation Dialog
     auditTitle: "Real-time Activity Audit Trail",
     totalCalls: "Total Announcements",
     presetCalls: "Preset Commands",
     customCalls: "Free Speech Broadcasts",
     clearAllAuditBtn: "Clear All Logs",
-    confirmClearAudit: "Are you sure you want to clear all audit logs? This action cannot be undone.",
+    confirmDeleteAuditTitle: "Confirm Log Deletion",
+    confirmDeleteAuditMessage: "Are you sure you want to permanently delete this audit log entry? This action cannot be undone.",
+    confirmClearAuditTitle: "Confirm Clear All Logs",
+    confirmClearAuditMessage: "Are you sure you want to clear all audit trail records?",
+    confirmDeleteBtn: "Yes, Delete Log",
+    confirmClearAllBtn: "Yes, Clear All Logs",
     deleteEntryBtn: "Delete Log",
     auditTimeCol: "Timestamp",
     auditTitleCol: "Title",
@@ -331,4 +427,3 @@ export const translations = {
     loginError: "Invalid username or password"
   }
 };
-

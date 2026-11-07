@@ -3,16 +3,18 @@ import {
   Shield, Key, LogOut, ArrowRight, Settings, Sliders, Database,
   History, Volume2, Bell, Radio, Check, AlertCircle, RefreshCw,
   Plus, Trash2, Edit2, Play, VolumeX, Sparkles, ExternalLink, Activity,
-  Sun, Moon, Globe, Folder, FolderPlus, Tag, Layers
+  Sun, Moon, Globe, Folder, FolderPlus, Tag, Layers, Mic, AlertTriangle
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
+import AdminVoiceRecorder from './AdminVoiceRecorder';
+import PublicWorkspace from './PublicWorkspace';
 
 export default function AdminApp() {
   const { theme, toggleTheme, lang, toggleLang, t } = useThemeLang();
 
   const [token, setToken] = useState(() => localStorage.getItem('kernelping_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('settings'); // settings | categories | presets | audit
+  const [activeTab, setActiveTab] = useState('workspace'); // 'workspace' | 'settings' | 'categories' | 'presets' | 'audit'
 
   // Admin Data State
   const [settings, setSettings] = useState({
@@ -20,11 +22,11 @@ export default function AdminApp() {
     cooldown_seconds: 15,
     pre_chime_enabled: true,
     chime_tone: 'airport',
+    chime_volume: 80,
     bluetooth_wakeup_enabled: true,
     server_volume: 85,
     tts_voice_ar: 'ar-SY-LaithNeural',
-    tts_voice_en: 'en-US-AriaNeural',
-    smart_pronunciation_enabled: true
+    tts_voice_en: 'en-US-AriaNeural'
   });
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -34,6 +36,10 @@ export default function AdminApp() {
     sources_breakdown: {},
     recent_entries: []
   });
+
+  // Audit deletion confirmation modal state
+  const [auditToDelete, setAuditToDelete] = useState(null);
+  const [showClearAllAuditModal, setShowClearAllAuditModal] = useState(false);
 
   // Category Modals
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
@@ -47,16 +53,14 @@ export default function AdminApp() {
     order: 0
   });
 
-  // Preset Modals
+  // Preset Modals (Single Title & Single Text)
   const [isAddPresetOpen, setIsAddPresetOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState(null);
   const [presetForm, setPresetForm] = useState({
     id: '',
-    category_id: 'meetings',
-    title_ar: '',
-    title_en: '',
-    text_ar: '',
-    text_en: '',
+    category_id: 'uncategorized',
+    title: '',
+    text: '',
     icon: 'Volume2',
     color: 'cyan'
   });
@@ -64,7 +68,7 @@ export default function AdminApp() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // Check auth on mount
+  // Check auth token on mount
   useEffect(() => {
     if (token) {
       verifyToken(token);
@@ -130,7 +134,7 @@ export default function AdminApp() {
         setAuditData(aData);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error loading admin data:", err);
     }
   };
 
@@ -152,86 +156,15 @@ export default function AdminApp() {
         body: JSON.stringify({ voice, lang: langCode })
       });
       if (res.ok) {
-        showToast(langCode === 'ar' ? 'جاري تشغيل عينة الصوت العربي 🔊' : 'Playing English voice sample 🔊', 'success');
-      } else {
-        showToast(t.errorGeneric, 'error');
+        showToast('Playing voice sample', 'success');
       }
     } catch {
-      showToast(t.errorNetwork, 'error');
+      showToast('Error playing voice sample', 'error');
     } finally {
       setTimeout(() => {
         setTestingVoice(prev => ({ ...prev, [langCode]: false }));
-      }, 1800);
+      }, 3000);
     }
-  };
-
-  const handleDeleteAuditEntry = async (entryId) => {
-    try {
-      const res = await fetch(`/api/admin/audit/${entryId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast(lang === 'ar' ? 'تم حذف السجل بنجاح' : 'Log entry deleted', 'success');
-        setAuditData(prev => ({
-          ...prev,
-          total_announcements: Math.max(0, prev.total_announcements - 1),
-          recent_entries: prev.recent_entries.filter(e => e.id !== entryId)
-        }));
-      } else {
-        showToast(t.errorGeneric, 'error');
-      }
-    } catch {
-      showToast(t.errorNetwork, 'error');
-    }
-  };
-
-  const handleClearAllAudit = async () => {
-    if (!window.confirm(t.confirmClearAudit)) return;
-    try {
-      const res = await fetch('/api/admin/audit', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast(lang === 'ar' ? 'تم مسح سجل العمليات بالكامل' : 'All audit logs cleared', 'success');
-        setAuditData({
-          total_announcements: 0,
-          sources_breakdown: {},
-          recent_entries: []
-        });
-      } else {
-        showToast(t.errorGeneric, 'error');
-      }
-    } catch {
-      showToast(t.errorNetwork, 'error');
-    }
-  };
-
-  // --- Live Settings Updates ---
-  const updateSetting = async (key, value) => {
-    const updated = { ...settings, [key]: value };
-    setSettings(updated);
-
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(updated)
-      });
-      if (res.ok) {
-        showToast(lang === 'ar' ? 'تم حفظ الإعدادات وتطبيقها فوراً' : 'Settings updated successfully', 'success');
-      }
-    } catch {
-      showToast(lang === 'ar' ? 'تعذر حفظ الإعدادات' : 'Error updating settings', 'error');
-    }
-  };
-
-  const handleVolumeChange = (vol) => {
-    updateSetting('server_volume', parseInt(vol, 10));
   };
 
   const handleTestChime = async (tone) => {
@@ -245,18 +178,60 @@ export default function AdminApp() {
         body: JSON.stringify({ tone })
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? `تشغيل نغمة ${tone} 🔔` : `Playing ${tone} chime 🔔`, 'success');
+        showToast(`Playing ${tone} chime`, 'success');
       }
     } catch {
-      showToast('Error playing chime', 'error');
+      showToast('Error testing chime', 'error');
     }
+  };
+
+  const updateSetting = async (key, value) => {
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updated)
+      });
+    } catch {
+      showToast('Error saving setting', 'error');
+    }
+  };
+
+  const handleVolumeChange = async (newVol) => {
+    const v = parseInt(newVol, 10);
+    setSettings(prev => ({ ...prev, server_volume: v }));
+    try {
+      await fetch('/api/admin/volume', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ volume: v })
+      });
+    } catch {
+      showToast('Error adjusting volume', 'error');
+    }
+  };
+
+  // Helper to detect language for live UI indicator
+  const isArabicText = (text) => {
+    const arCount = (text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+    const enCount = (text.match(/[a-zA-Z]/g) || []).length;
+    return arCount >= enCount;
   };
 
   // --- Category CRUD Actions ---
   const handleCreateCategory = async (e) => {
     e.preventDefault();
-    if (!categoryForm.id.trim() || !categoryForm.name_ar.trim() || !categoryForm.name_en.trim()) {
-      showToast(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields', 'warning');
+    if (!categoryForm.id.trim() || !categoryForm.name_ar.trim()) {
+      showToast('Please fill required fields', 'warning');
       return;
     }
 
@@ -270,9 +245,16 @@ export default function AdminApp() {
         body: JSON.stringify(categoryForm)
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تمت إضافة التصنيف بنجاح' : 'Category created successfully', 'success');
+        showToast('Category added successfully', 'success');
         setIsAddCategoryOpen(false);
-        setCategoryForm({ id: '', name_ar: '', name_en: '', icon: 'Folder', color: 'cyan', order: 0 });
+        setCategoryForm({
+          id: '',
+          name_ar: '',
+          name_en: '',
+          icon: 'Folder',
+          color: 'cyan',
+          order: 0
+        });
         loadAdminData();
       } else {
         const d = await res.json();
@@ -283,21 +265,18 @@ export default function AdminApp() {
     }
   };
 
-  const handleUpdateCategory = async (e) => {
-    e.preventDefault();
-    if (!editingCategory) return;
-
+  const handleUpdateCategory = async (cat) => {
     try {
-      const res = await fetch(`/api/admin/categories/${editingCategory.id}`, {
+      const res = await fetch(`/api/admin/categories/${cat.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(editingCategory)
+        body: JSON.stringify(cat)
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تم تحديث التصنيف بنجاح' : 'Category updated successfully', 'success');
+        showToast('Category updated successfully', 'success');
         setEditingCategory(null);
         loadAdminData();
       } else {
@@ -318,28 +297,39 @@ export default function AdminApp() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تم حذف التصنيف' : 'Category deleted', 'success');
+        showToast('Category deleted', 'success');
         loadAdminData();
+      } else {
+        showToast('Error deleting category', 'error');
       }
     } catch {
       showToast('Error deleting category', 'error');
     }
   };
 
-  // --- Preset CRUD Actions ---
+  // --- Preset CRUD Actions (Single Title & Single Text) ---
   const handleCreatePreset = async (e) => {
     e.preventDefault();
-    if (!presetForm.id.trim() || !presetForm.title_ar.trim() || !presetForm.text_ar.trim()) {
-      showToast(lang === 'ar' ? 'يرجى ملء الحقول الأساسية' : 'Please fill required fields', 'warning');
+    if (!presetForm.id.trim() || !presetForm.title.trim() || !presetForm.text.trim()) {
+      showToast('Please fill all required fields', 'warning');
       return;
     }
 
     try {
       const payload = {
-        ...presetForm,
-        title: presetForm.title_ar,
-        text: presetForm.text_ar,
-        category: categories.find(c => c.id === presetForm.category_id)?.name_ar || 'عام'
+        id: presetForm.id.trim(),
+        category_id: presetForm.category_id || 'uncategorized',
+        title: presetForm.title.trim(),
+        title_ar: presetForm.title.trim(),
+        title_en: presetForm.title.trim(),
+        text: presetForm.text.trim(),
+        text_ar: presetForm.text.trim(),
+        text_en: presetForm.text.trim(),
+        icon: presetForm.icon || 'Volume2',
+        color: presetForm.color || 'cyan',
+        category: presetForm.category_id === 'uncategorized' 
+          ? 'Uncategorized' 
+          : (categories.find(c => c.id === presetForm.category_id)?.name_ar || 'Uncategorized')
       };
 
       const res = await fetch('/api/admin/presets', {
@@ -351,15 +341,13 @@ export default function AdminApp() {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تمت إضافة الجملة وبناء الصوت' : 'Preset created and audio cached', 'success');
+        showToast('Preset created and audio cached', 'success');
         setIsAddPresetOpen(false);
         setPresetForm({
           id: '',
-          category_id: categories[0]?.id || 'meetings',
-          title_ar: '',
-          title_en: '',
-          text_ar: '',
-          text_en: '',
+          category_id: 'uncategorized',
+          title: '',
+          text: '',
           icon: 'Volume2',
           color: 'cyan'
         });
@@ -375,11 +363,20 @@ export default function AdminApp() {
 
   const handleUpdatePreset = async (preset) => {
     try {
+      const title = preset.title || preset.title_ar || preset.title_en || preset.id;
+      const text = preset.text || preset.text_ar || preset.text_en || '';
+
       const payload = {
         ...preset,
-        title: preset.title_ar || preset.title,
-        text: preset.text_ar || preset.text,
-        category: categories.find(c => c.id === preset.category_id)?.name_ar || preset.category
+        title: title,
+        title_ar: title,
+        title_en: title,
+        text: text,
+        text_ar: text,
+        text_en: text,
+        category: preset.category_id === 'uncategorized' 
+          ? 'Uncategorized' 
+          : (categories.find(c => c.id === preset.category_id)?.name_ar || preset.category || 'Uncategorized')
       };
 
       const res = await fetch(`/api/admin/presets/${preset.id}`, {
@@ -391,9 +388,11 @@ export default function AdminApp() {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تم حفظ التعديلات وإعادة بناء الصوت' : 'Preset updated successfully', 'success');
+        showToast('Preset updated successfully', 'success');
         setEditingPreset(null);
         loadAdminData();
+      } else {
+        showToast('Error updating preset', 'error');
       }
     } catch {
       showToast('Error updating preset', 'error');
@@ -401,15 +400,17 @@ export default function AdminApp() {
   };
 
   const handleDeletePreset = async (id) => {
-    if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذه الجملة نهائياً؟' : 'Delete this preset permanently?')) return;
+    if (!window.confirm('Delete this preset permanently?')) return;
     try {
       const res = await fetch(`/api/admin/presets/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تم حذف الجملة' : 'Preset deleted', 'success');
+        showToast('Preset deleted', 'success');
         loadAdminData();
+      } else {
+        showToast('Error deleting preset', 'error');
       }
     } catch {
       showToast('Error deleting preset', 'error');
@@ -423,7 +424,7 @@ export default function AdminApp() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تم إعادة بناء الصوت بنجاح' : 'Audio cache rebuilt', 'success');
+        showToast('Audio cache rebuilt', 'success');
         loadAdminData();
       }
     } catch {
@@ -439,8 +440,10 @@ export default function AdminApp() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast(lang === 'ar' ? 'تمت إعادة بناء كافة الأصوات (عربي وإنجليزي) ⚡' : 'All audio caches rebuilt ⚡', 'success');
+        showToast('All audio caches rebuilt', 'success');
         loadAdminData();
+      } else {
+        showToast('Error rebuilding all caches', 'error');
       }
     } catch {
       showToast('Error rebuilding all caches', 'error');
@@ -449,7 +452,45 @@ export default function AdminApp() {
     }
   };
 
-  // If not authenticated, render Login Screen
+  // --- Audit Log Deletion with Confirmation Dialog (Requirement 5) ---
+  const handleConfirmDeleteAuditEntry = async () => {
+    if (!auditToDelete) return;
+    try {
+      const res = await fetch(`/api/admin/audit/${auditToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Log entry deleted successfully', 'success');
+        setAuditToDelete(null);
+        loadAdminData();
+      } else {
+        showToast('Error deleting audit log entry', 'error');
+      }
+    } catch {
+      showToast('Network error', 'error');
+    }
+  };
+
+  const handleConfirmClearAllAudit = async () => {
+    try {
+      const res = await fetch('/api/admin/audit', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('All audit logs cleared successfully', 'success');
+        setShowClearAllAuditModal(false);
+        loadAdminData();
+      } else {
+        showToast('Error clearing logs', 'error');
+      }
+    } catch {
+      showToast('Network error', 'error');
+    }
+  };
+
+  // Render Login Screen if not authenticated
   if (!isAuthenticated) {
     return <AdminLogin onLoginSuccess={(newToken) => {
       localStorage.setItem('kernelping_token', newToken);
@@ -461,9 +502,10 @@ export default function AdminApp() {
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#070C1B] text-slate-100' : 'bg-[#F8FAFC] text-slate-800'} pb-16 transition-colors duration-200`}>
+      
       {/* Toast Alert */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border text-sm font-semibold transition-all"
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-bounce text-sm font-semibold transition-all"
              style={{
                backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
                borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444',
@@ -473,20 +515,113 @@ export default function AdminApp() {
         </div>
       )}
 
-      {/* Admin Stealth Header */}
+      {/* Confirmation Modal for Single Audit Deletion (Requirement 5) */}
+      {auditToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className={`border rounded-3xl w-full max-w-md p-6 shadow-2xl transition-all ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152] text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center gap-3 mb-4 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base">{t.confirmDeleteAuditTitle}</h3>
+                <p className="text-xs opacity-75">{auditToDelete.timestamp}</p>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed mb-4 opacity-80">
+              {t.confirmDeleteAuditMessage}
+            </p>
+
+            <div className={`p-3.5 rounded-2xl border text-xs mb-6 ${
+              theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <p className="font-bold mb-1 text-cyan-400">{auditToDelete.title}</p>
+              <p className="opacity-80 italic line-clamp-2">"{auditToDelete.text}"</p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAuditToDelete(null)}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+                  theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAuditEntry}
+                className="px-5 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all"
+              >
+                {t.confirmDeleteBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Clearing All Audit Logs */}
+      {showClearAllAuditModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className={`border rounded-3xl w-full max-w-md p-6 shadow-2xl ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152] text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center gap-3 mb-4 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-rose-500" />
+              </div>
+              <h3 className="font-bold text-base">{t.confirmClearAuditTitle}</h3>
+            </div>
+
+            <p className="text-xs leading-relaxed mb-6 opacity-80">
+              {t.confirmClearAuditMessage}
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearAllAuditModal(false)}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-bold ${
+                  theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearAllAudit}
+                className="px-5 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/30"
+              >
+                {t.confirmClearAllBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Top Header */}
       <header className={`sticky top-0 z-40 backdrop-blur-lg border-b px-4 lg:px-8 py-3.5 shadow-xl transition-colors duration-200 ${
-        theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200'
+        theme === 'dark' ? 'bg-[#0B132B]/90 border-[#1F3152]' : 'bg-white/90 border-slate-200 shadow-slate-100'
       }`}>
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 bg-white border border-slate-200/60 shadow-sm transition-all">
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center p-1.5 bg-white border border-slate-200/60 shadow-sm transition-all">
+              <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                {t.adminTitle}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className={`text-base font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {t.adminTitle}
+                </h1>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
+                  {t.adminBadge}
+                </span>
+              </div>
               <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                 {t.adminSubtitle}
               </p>
@@ -494,7 +629,7 @@ export default function AdminApp() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* Theme Switcher Button */}
+            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               title={t.themeToggle}
@@ -507,7 +642,7 @@ export default function AdminApp() {
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Language Switcher Button */}
+            {/* Language Toggle */}
             <button
               onClick={toggleLang}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
@@ -520,7 +655,7 @@ export default function AdminApp() {
               <span>{t.langToggle}</span>
             </button>
 
-            {/* Back to Public */}
+            {/* Back to Public View */}
             <button
               onClick={() => { window.location.href = '/'; }}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
@@ -546,12 +681,13 @@ export default function AdminApp() {
         </div>
       </header>
 
-      {/* Admin Navigation Tabs */}
+      {/* Admin Navigation Tabs (Includes Workspace & Live Broadcast as Tab 1) */}
       <div className="max-w-7xl mx-auto px-4 lg:px-8 mt-6">
         <div className={`flex items-center gap-2 border-b pb-3 overflow-x-auto ${
           theme === 'dark' ? 'border-[#1F3152]' : 'border-slate-200'
         }`}>
           {[
+            { id: 'workspace', label: t.tabLiveWorkspace, icon: Radio },
             { id: 'settings', label: t.tabAudio, icon: Sliders },
             { id: 'categories', label: t.tabCategories, icon: Layers },
             { id: 'presets', label: t.tabPresets, icon: Database },
@@ -582,13 +718,28 @@ export default function AdminApp() {
       </div>
 
       {/* Main Tab Panels */}
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 mt-6">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 mt-6">
         
-        {/* TAB 1: AUDIO SETTINGS */}
+        {/* TAB 1: INTEGRATED MAIN WORKSPACE + LIVE VOICE BROADCAST (Requirement 7) */}
+        {activeTab === 'workspace' && (
+          <div>
+            <PublicWorkspace
+              isEmbedded={true}
+              extraAdminContent={
+                <AdminVoiceRecorder
+                  token={token}
+                  onBroadcastSuccess={(msg) => showToast(msg, 'success')}
+                />
+              }
+            />
+          </div>
+        )}
+
+        {/* TAB 2: AUDIO SETTINGS */}
         {activeTab === 'settings' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Server Volume & Voices */}
+            {/* Server Output & Voices */}
             <div className={`border rounded-3xl p-6 shadow-xl space-y-6 transition-colors duration-200 ${
               theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
             }`}>
@@ -664,9 +815,9 @@ export default function AdminApp() {
                       theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500'
                     }`}
                   >
-                    <option value="ar-SY-LaithNeural">ar-SY-LaithNeural (ليث - نبرة واضحة ومثالية للإذاعة المكتبية)</option>
-                    <option value="ar-SA-HamedNeural">ar-SA-HamedNeural (حامد - صوت إذاعي هادئ ومتزن)</option>
-                    <option value="ar-AE-HamdanNeural">ar-AE-HamdanNeural (حمدان - صوت خليجي رسمي)</option>
+                    <option value="ar-SY-LaithNeural">ar-SY-LaithNeural (Laith - Broadcast Standard)</option>
+                    <option value="ar-SA-HamedNeural">ar-SA-HamedNeural (Hamed - Calm & Crisp)</option>
+                    <option value="ar-AE-HamdanNeural">ar-AE-HamdanNeural (Hamdan - Official Tone)</option>
                   </select>
                 </div>
 
@@ -702,30 +853,10 @@ export default function AdminApp() {
                     <option value="en-US-AvaMultilingualNeural">en-US-AvaMultilingualNeural (Ava - Expressive & Pleasant)</option>
                   </select>
                 </div>
-
-                {/* Smart Pronunciation Normalizer */}
-                <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${
-                  theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <div>
-                    <h5 className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                      {t.smartPronunciationLabel}
-                    </h5>
-                    <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {t.smartPronunciationDesc}
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.smart_pronunciation_enabled}
-                    onChange={(e) => updateSetting('smart_pronunciation_enabled', e.target.checked)}
-                    className="w-5 h-5 rounded cursor-pointer accent-[#00D2FF]"
-                  />
-                </div>
               </div>
             </div>
 
-            {/* Chime & Bluetooth Settings */}
+            {/* Chime & Bluetooth Settings (Includes Chime Volume Slider) */}
             <div className={`border rounded-3xl p-6 shadow-xl space-y-6 transition-colors duration-200 ${
               theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
             }`}>
@@ -758,40 +889,78 @@ export default function AdminApp() {
 
               {/* Chime Tone Selector */}
               {settings.pre_chime_enabled && (
-                <div>
-                  <label className={`block text-xs font-semibold mb-2 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {t.chimeToneLabel}
-                  </label>
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {[
-                      { id: 'airport', name: lang === 'en' ? 'Airport' : 'مطار' },
-                      { id: 'bell', name: lang === 'en' ? 'Bell' : 'جرس' },
-                      { id: 'alert', name: lang === 'en' ? 'Alert' : 'إنذار' }
-                    ].map((tone) => (
-                      <div
-                        key={tone.id}
-                        className={`p-3 rounded-2xl border text-center cursor-pointer transition-all ${
-                          settings.chime_tone === tone.id
-                            ? 'bg-[#00D2FF]/10 border-[#00D2FF] text-[#00D2FF] font-black'
-                            : theme === 'dark'
-                              ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:border-slate-500'
-                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-400'
-                        }`}
-                        onClick={() => updateSetting('chime_tone', tone.id)}
-                      >
-                        <span className="text-xs block mb-1 font-bold">{tone.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTestChime(tone.id);
-                          }}
-                          className={`text-[10px] underline ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}
+                <div className="space-y-4">
+                  <div>
+                    <label className={`block text-xs font-semibold mb-2 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {t.chimeToneLabel}
+                    </label>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {[
+                        { id: 'airport', name: 'Airport' },
+                        { id: 'bell', name: 'Bell' },
+                        { id: 'alert', name: 'Alert' }
+                      ].map((tone) => (
+                        <div
+                          key={tone.id}
+                          className={`p-3 rounded-2xl border text-center cursor-pointer transition-all ${
+                            settings.chime_tone === tone.id
+                              ? 'bg-[#00D2FF]/10 border-[#00D2FF] text-[#00D2FF] font-black'
+                              : theme === 'dark'
+                                ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:border-slate-500'
+                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-400'
+                          }`}
+                          onClick={() => updateSetting('chime_tone', tone.id)}
                         >
-                          {t.testTone}
+                          <span className="text-xs block mb-1 font-bold">{tone.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTestChime(tone.id);
+                            }}
+                            className={`text-[10px] underline ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}
+                          >
+                            {t.testTone}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chime Volume Slider (Requirement 2) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className={`text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {t.chimeVolumeLabel}
+                      </label>
+                      <span className="text-xs font-mono font-bold text-amber-400">
+                        {settings.chime_volume ?? 80}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={settings.chime_volume ?? 80}
+                      onChange={(e) => updateSetting('chime_volume', Number(e.target.value))}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                    />
+                    <div className="flex justify-between gap-1.5 mt-2">
+                      {[25, 50, 75, 80, 100].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => updateSetting('chime_volume', v)}
+                          className={`text-[11px] font-mono px-3 py-1 rounded-xl transition-colors ${
+                            (settings.chime_volume ?? 80) === v
+                              ? 'bg-amber-400 text-slate-950 font-bold'
+                              : theme === 'dark' ? 'bg-[#162238] text-slate-300 hover:bg-[#1F3152]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          {v}%
                         </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -816,7 +985,7 @@ export default function AdminApp() {
                 />
               </div>
 
-              {/* Spam Cooldown */}
+              {/* Spam Cooldown (Enforces cooldown on both presets and free text) */}
               <div className={`pt-4 border-t space-y-3 ${theme === 'dark' ? 'border-[#1F3152]' : 'border-slate-200'}`}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -858,7 +1027,7 @@ export default function AdminApp() {
           </div>
         )}
 
-        {/* TAB 2: CATEGORIES MANAGEMENT (NEW DEDICATED TAB) */}
+        {/* TAB 3: CATEGORIES MANAGEMENT */}
         {activeTab === 'categories' && (
           <div className="space-y-6">
             <div className={`p-4 rounded-3xl border flex flex-wrap items-center justify-between gap-4 ${
@@ -903,7 +1072,11 @@ export default function AdminApp() {
                   </thead>
                   <tbody className={`divide-y ${theme === 'dark' ? 'divide-[#1F3152] text-slate-300' : 'divide-slate-200 text-slate-700'}`}>
                     {categories.map((cat) => {
-                      const count = presets.filter(p => p.category_id === cat.id || p.category === cat.name_ar).length;
+                      const count = presets.filter(p => 
+                        p.category_id === cat.id || 
+                        p.category === cat.name_ar ||
+                        (cat.id === 'uncategorized' && (!p.category_id || p.category_id === 'uncategorized'))
+                      ).length;
                       return (
                         <tr key={cat.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-[#121C33]/50' : 'hover:bg-slate-50'}`}>
                           <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{cat.id}</td>
@@ -920,22 +1093,26 @@ export default function AdminApp() {
                           </td>
                           <td className="py-3.5 px-4">
                             <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() => setEditingCategory(cat)}
-                                className={`p-1.5 rounded-xl border transition-colors ${
-                                  theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300 border-[#1F3152]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                                }`}
-                                title={t.edit}
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCategory(cat.id)}
-                                className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 transition-colors"
-                                title={t.delete}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {cat.id !== 'uncategorized' && (
+                                <>
+                                  <button
+                                    onClick={() => setEditingCategory(cat)}
+                                    className={`p-1.5 rounded-xl border transition-colors ${
+                                      theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300 border-[#1F3152]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                                    }`}
+                                    title={t.edit}
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCategory(cat.id)}
+                                    className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 transition-colors"
+                                    title={t.delete}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -955,7 +1132,7 @@ export default function AdminApp() {
                   <h3 className="font-bold text-base mb-4">{t.addCategoryModalTitle}</h3>
                   <form onSubmit={handleCreateCategory} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1">المعرف التعريفي (Category ID):</label>
+                      <label className="block text-xs font-semibold mb-1">Category ID:</label>
                       <input
                         type="text"
                         required
@@ -968,11 +1145,11 @@ export default function AdminApp() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold mb-1">الاسم بالعربية:</label>
+                      <label className="block text-xs font-semibold mb-1">Arabic Name:</label>
                       <input
                         type="text"
                         required
-                        placeholder="تطوير تطبيقات الجوال"
+                        placeholder="Mobile Development (Arabic)"
                         value={categoryForm.name_ar}
                         onChange={(e) => setCategoryForm({ ...categoryForm, name_ar: e.target.value })}
                         className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
@@ -981,7 +1158,7 @@ export default function AdminApp() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold mb-1">الاسم بالإنجليزية (English Name):</label>
+                      <label className="block text-xs font-semibold mb-1">English Name:</label>
                       <input
                         type="text"
                         required
@@ -1023,12 +1200,11 @@ export default function AdminApp() {
                   theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 text-slate-900'
                 }`}>
                   <h3 className="font-bold text-base mb-4">{t.editCategoryModalTitle}: {editingCategory.id}</h3>
-                  <form onSubmit={handleUpdateCategory} className="space-y-4">
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1">الاسم بالعربية:</label>
+                      <label className="block text-xs font-semibold mb-1">Arabic Name:</label>
                       <input
                         type="text"
-                        required
                         value={editingCategory.name_ar}
                         onChange={(e) => setEditingCategory({ ...editingCategory, name_ar: e.target.value })}
                         className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
@@ -1037,10 +1213,9 @@ export default function AdminApp() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold mb-1">الاسم بالإنجليزية:</label>
+                      <label className="block text-xs font-semibold mb-1">English Name:</label>
                       <input
                         type="text"
-                        required
                         value={editingCategory.name_en}
                         onChange={(e) => setEditingCategory({ ...editingCategory, name_en: e.target.value })}
                         className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
@@ -1060,21 +1235,21 @@ export default function AdminApp() {
                         {t.cancel}
                       </button>
                       <button
-                        type="submit"
+                        type="button"
+                        onClick={() => handleUpdateCategory(editingCategory)}
                         className="px-5 py-2 rounded-2xl bg-[#00D2FF] text-slate-950 font-bold text-xs shadow-md shadow-[#00D2FF]/20"
                       >
                         {t.saveChanges}
                       </button>
                     </div>
-                  </form>
+                  </div>
                 </div>
               </div>
             )}
-
           </div>
         )}
 
-        {/* TAB 3: PRESETS CRUD */}
+        {/* TAB 4: PRESETS CRUD (Single Title, Single Text, Uncategorized Option) */}
         {activeTab === 'presets' && (
           <div className="space-y-6">
             <div className={`p-4 rounded-3xl border flex flex-wrap items-center justify-between gap-4 ${
@@ -1093,16 +1268,19 @@ export default function AdminApp() {
                 <button
                   onClick={handleRebuildAllCache}
                   disabled={loading}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs font-bold transition-colors disabled:opacity-50 ${
-                    theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152]' : 'bg-slate-100 hover:bg-slate-200 text-sky-700 border-slate-200'
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                    theme === 'dark'
+                      ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152]'
+                      : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
                   }`}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                   <span>{t.rebuildAllCacheBtn}</span>
                 </button>
+
                 <button
                   onClick={() => setIsAddPresetOpen(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#00D2FF] hover:bg-[#33DCFF] text-slate-950 text-xs font-bold shadow-md shadow-[#00D2FF]/20 transition-all"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#00D2FF] hover:bg-[#33DCFF] text-slate-950 text-xs font-bold shadow-md shadow-[#00D2FF]/20 transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   <span>{t.addPresetBtn}</span>
@@ -1129,61 +1307,43 @@ export default function AdminApp() {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${theme === 'dark' ? 'divide-[#1F3152] text-slate-300' : 'divide-slate-200 text-slate-700'}`}>
-                    {presets.map((p) => {
-                      const matchedCat = categories.find(c => c.id === p.category_id || c.name_ar === p.category);
-                      const catDisplay = lang === 'en' ? (matchedCat?.name_en || p.category) : (matchedCat?.name_ar || p.category);
+                    {presets.map((preset) => {
+                      const title = preset.title || preset.title_ar || preset.title_en || preset.id;
+                      const text = preset.text || preset.text_ar || preset.text_en || '';
+                      const isUncat = !preset.category_id || preset.category_id === 'uncategorized';
 
                       return (
-                        <tr key={p.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-[#121C33]/50' : 'hover:bg-slate-50'}`}>
-                          <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{p.id}</td>
-                          <td className="py-3.5 px-4 font-bold">
-                            <div>{p.title_ar || p.title}</div>
-                            {p.title_en && <div className="text-[10px] text-slate-400 font-normal">{p.title_en}</div>}
-                          </td>
+                        <tr key={preset.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-[#121C33]/50' : 'hover:bg-slate-50'}`}>
+                          <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{preset.id}</td>
+                          <td className="py-3.5 px-4 font-bold">{title}</td>
                           <td className="py-3.5 px-4">
-                            <span className={`px-2.5 py-0.5 rounded-xl font-semibold text-[11px] ${
-                              theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-700'
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                              isUncat 
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' 
+                                : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                             }`}>
-                              {catDisplay}
+                              {isUncat ? t.uncategorized : (categories.find(c => c.id === preset.category_id)?.name_ar || preset.category)}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 max-w-xs truncate">
-                            <div>{p.text_ar || p.text}</div>
-                            {p.text_en && <div className="text-[10px] text-slate-400 truncate">{p.text_en}</div>}
+                          <td className="py-3.5 px-4 max-w-sm truncate text-slate-400">"{text}"</td>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                              Ready
+                            </span>
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="flex flex-col gap-1">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                p.cached_ar || p.cached
-                                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
-                                  : 'bg-amber-500/10 text-amber-500 border-amber-500/30'
-                              }`}>
-                                <Check className="w-3 h-3" />
-                                <span>{t.cacheArLabel}</span>
-                              </span>
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                p.cached_en
-                                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
-                                  : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-                              }`}>
-                                <Check className="w-3 h-3" />
-                                <span>{t.cacheEnLabel}</span>
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-2">
                               <button
-                                onClick={() => handleRebuildSingleCache(p.id)}
+                                onClick={() => handleRebuildSingleCache(preset.id)}
                                 className={`p-1.5 rounded-xl border transition-colors ${
-                                  theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152]' : 'bg-slate-100 hover:bg-slate-200 text-sky-700 border-slate-200'
+                                  theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-cyan-400 border-[#1F3152]' : 'bg-slate-100 hover:bg-slate-200 text-sky-700 border-slate-200'
                                 }`}
                                 title={t.rebuildPresetCacheBtn}
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => setEditingPreset(p)}
+                                onClick={() => setEditingPreset(preset)}
                                 className={`p-1.5 rounded-xl border transition-colors ${
                                   theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300 border-[#1F3152]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                                 }`}
@@ -1192,7 +1352,7 @@ export default function AdminApp() {
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => handleDeletePreset(p.id)}
+                                onClick={() => handleDeletePreset(preset.id)}
                                 className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 transition-colors"
                                 title={t.delete}
                               >
@@ -1208,7 +1368,7 @@ export default function AdminApp() {
               </div>
             </div>
 
-            {/* Modal: Add Preset */}
+            {/* Modal: Add Preset (Single Title & Single Text, Uncategorized Option) */}
             {isAddPresetOpen && (
               <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
                 <div className={`border rounded-3xl w-full max-w-lg p-6 shadow-2xl ${
@@ -1218,7 +1378,7 @@ export default function AdminApp() {
                   <form onSubmit={handleCreatePreset} className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold mb-1">المعرف (ID):</label>
+                        <label className="block text-xs font-semibold mb-1">{t.presetIdCol}:</label>
                         <input
                           type="text"
                           required
@@ -1231,7 +1391,7 @@ export default function AdminApp() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold mb-1">التصنيف (Category):</label>
+                        <label className="block text-xs font-semibold mb-1">{t.presetCategoryCol}:</label>
                         <select
                           value={presetForm.category_id}
                           onChange={(e) => setPresetForm({ ...presetForm, category_id: e.target.value })}
@@ -1239,66 +1399,52 @@ export default function AdminApp() {
                             theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                           }`}
                         >
-                          {categories.map((c) => (
+                          <option value="uncategorized">{t.uncategorized}</option>
+                          {categories.filter(c => c.id !== 'uncategorized').map((c) => (
                             <option key={c.id} value={c.id}>{lang === 'en' ? c.name_en : c.name_ar}</option>
                           ))}
                         </select>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">العنوان بالعربية:</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="تذكير الاجتماع"
-                          value={presetForm.title_ar}
-                          onChange={(e) => setPresetForm({ ...presetForm, title_ar: e.target.value })}
-                          className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
-                            theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">العنوان بالإنجليزية (English):</label>
-                        <input
-                          type="text"
-                          placeholder="Meeting Reminder"
-                          value={presetForm.title_en}
-                          onChange={(e) => setPresetForm({ ...presetForm, title_en: e.target.value })}
-                          className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
-                            theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                          }`}
-                        />
-                      </div>
-                    </div>
-
+                    {/* Single Title Input Field */}
                     <div>
-                      <label className="block text-xs font-semibold mb-1">نص النطق بالعربية:</label>
-                      <textarea
-                        rows={2}
+                      <label className="block text-xs font-semibold mb-1">{t.singleTitleLabel}</label>
+                      <input
+                        type="text"
                         required
-                        placeholder="نص النطق الذي سيلقيه النظام بالعربية..."
-                        value={presetForm.text_ar}
-                        onChange={(e) => setPresetForm({ ...presetForm, text_ar: e.target.value })}
-                        className={`w-full border rounded-2xl p-3 text-xs focus:outline-none ${
+                        placeholder={t.singleTitlePlaceholder}
+                        value={presetForm.title}
+                        onChange={(e) => setPresetForm({ ...presetForm, title: e.target.value })}
+                        className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
                           theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                         }`}
                       />
                     </div>
 
+                    {/* Single Spoken Textarea Field */}
                     <div>
-                      <label className="block text-xs font-semibold mb-1">نص النطق بالإنجليزية (English Speech Text):</label>
+                      <label className="block text-xs font-semibold mb-1">{t.singleTextLabel}</label>
                       <textarea
-                        rows={2}
-                        placeholder="English speech announcement text..."
-                        value={presetForm.text_en}
-                        onChange={(e) => setPresetForm({ ...presetForm, text_en: e.target.value })}
+                        rows={3}
+                        required
+                        placeholder={t.singleTextPlaceholder}
+                        value={presetForm.text}
+                        onChange={(e) => setPresetForm({ ...presetForm, text: e.target.value })}
                         className={`w-full border rounded-2xl p-3 text-xs focus:outline-none ${
                           theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                         }`}
                       />
+
+                      {/* Live Language Engine Detection Badge */}
+                      {presetForm.text.trim() && (
+                        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-cyan-400">
+                          <span>🌐</span>
+                          <span>
+                            {isArabicText(presetForm.text) ? t.engineArNotice : t.engineEnNotice}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex justify-end gap-2.5 pt-2">
@@ -1323,7 +1469,7 @@ export default function AdminApp() {
               </div>
             )}
 
-            {/* Modal: Edit Preset */}
+            {/* Modal: Edit Preset (Single Title & Single Text, Uncategorized Option) */}
             {editingPreset && (
               <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
                 <div className={`border rounded-3xl w-full max-w-lg p-6 shadow-2xl ${
@@ -1332,67 +1478,55 @@ export default function AdminApp() {
                   <h3 className="font-bold text-base mb-4">{t.editPresetModalTitle}: {editingPreset.id}</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1">التصنيف:</label>
+                      <label className="block text-xs font-semibold mb-1">{t.presetCategoryCol}:</label>
                       <select
-                        value={editingPreset.category_id || categories[0]?.id}
+                        value={editingPreset.category_id || 'uncategorized'}
                         onChange={(e) => setEditingPreset({ ...editingPreset, category_id: e.target.value })}
                         className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
                           theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                         }`}
                       >
-                        {categories.map((c) => (
+                        <option value="uncategorized">{t.uncategorized}</option>
+                        {categories.filter(c => c.id !== 'uncategorized').map((c) => (
                           <option key={c.id} value={c.id}>{lang === 'en' ? c.name_en : c.name_ar}</option>
                         ))}
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">العنوان بالعربية:</label>
-                        <input
-                          type="text"
-                          value={editingPreset.title_ar || editingPreset.title || ''}
-                          onChange={(e) => setEditingPreset({ ...editingPreset, title_ar: e.target.value })}
-                          className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
-                            theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">العنوان بالإنجليزية:</label>
-                        <input
-                          type="text"
-                          value={editingPreset.title_en || ''}
-                          onChange={(e) => setEditingPreset({ ...editingPreset, title_en: e.target.value })}
-                          className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
-                            theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                          }`}
-                        />
-                      </div>
-                    </div>
-
+                    {/* Single Title Input */}
                     <div>
-                      <label className="block text-xs font-semibold mb-1">نص النطق بالعربية:</label>
-                      <textarea
-                        rows={2}
-                        value={editingPreset.text_ar || editingPreset.text || ''}
-                        onChange={(e) => setEditingPreset({ ...editingPreset, text_ar: e.target.value })}
-                        className={`w-full border rounded-2xl p-3 text-xs focus:outline-none ${
+                      <label className="block text-xs font-semibold mb-1">{t.singleTitleLabel}</label>
+                      <input
+                        type="text"
+                        value={editingPreset.title || editingPreset.title_ar || editingPreset.title_en || ''}
+                        onChange={(e) => setEditingPreset({ ...editingPreset, title: e.target.value })}
+                        className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
                           theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                         }`}
                       />
                     </div>
 
+                    {/* Single Text Input */}
                     <div>
-                      <label className="block text-xs font-semibold mb-1">نص النطق بالإنجليزية:</label>
+                      <label className="block text-xs font-semibold mb-1">{t.singleTextLabel}</label>
                       <textarea
-                        rows={2}
-                        value={editingPreset.text_en || ''}
-                        onChange={(e) => setEditingPreset({ ...editingPreset, text_en: e.target.value })}
+                        rows={3}
+                        value={editingPreset.text || editingPreset.text_ar || editingPreset.text_en || ''}
+                        onChange={(e) => setEditingPreset({ ...editingPreset, text: e.target.value })}
                         className={`w-full border rounded-2xl p-3 text-xs focus:outline-none ${
                           theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                         }`}
                       />
+
+                      {/* Live Language Engine Detection Badge */}
+                      {(editingPreset.text || '').trim() && (
+                        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-cyan-400">
+                          <span>🌐</span>
+                          <span>
+                            {isArabicText(editingPreset.text || '') ? t.engineArNotice : t.engineEnNotice}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex justify-end gap-2.5 pt-2">
@@ -1421,7 +1555,7 @@ export default function AdminApp() {
           </div>
         )}
 
-        {/* TAB 4: AUDIT TRAIL */}
+        {/* TAB 5: AUDIT TRAIL (With Deletion Confirmation Dialogs) */}
         {activeTab === 'audit' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1446,7 +1580,7 @@ export default function AdminApp() {
               }`}>
                 <span className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{t.customCalls}</span>
                 <p className="text-2xl font-mono font-black text-amber-500 mt-1">
-                  {(auditData.sources_breakdown?.free_text || 0) + (auditData.sources_breakdown?.device_call || 0)}
+                  {(auditData.sources_breakdown?.free_text || 0) + (auditData.sources_breakdown?.device_call || 0) + (auditData.sources_breakdown?.admin_voice || 0)}
                 </p>
               </div>
             </div>
@@ -1462,7 +1596,7 @@ export default function AdminApp() {
                   {auditData.recent_entries.length > 0 && (
                     <button
                       type="button"
-                      onClick={handleClearAllAudit}
+                      onClick={() => setShowClearAllAuditModal(true)}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 transition-all flex items-center gap-1.5"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1497,18 +1631,20 @@ export default function AdminApp() {
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             log.source === 'preset' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30' :
                             log.source === 'device_call' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/30' :
+                            log.source === 'admin_voice' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
                             'bg-amber-500/10 text-amber-500 border border-amber-500/30'
                           }`}>
-                            {log.source === 'preset' ? 'Preset' : log.source === 'device_call' ? 'Call' : 'Custom'}
+                            {log.source === 'preset' ? 'Preset' : log.source === 'device_call' ? 'Call' : log.source === 'admin_voice' ? 'Live Voice' : 'Custom'}
                           </span>
                         </td>
                         <td className="py-3 px-4 max-w-md truncate">{log.text}</td>
                         <td className="py-3 px-4 font-mono uppercase text-[10px] font-bold text-sky-500">{log.language || 'AR'}</td>
                         <td className="py-3 px-4 font-mono text-slate-400">{log.sender_ip}</td>
                         <td className="py-3 px-4 text-center">
+                          {/* Triggers Confirmation Modal */}
                           <button
                             type="button"
-                            onClick={() => handleDeleteAuditEntry(log.id)}
+                            onClick={() => setAuditToDelete(log)}
                             title={t.deleteEntryBtn}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                           >
@@ -1532,12 +1668,12 @@ export default function AdminApp() {
           </div>
         )}
 
-      </main>
+      </div>
     </div>
   );
 }
 
-// Standalone Login Screen for /admin
+// Standalone Secure Login Screen for /admin
 function AdminLogin({ onLoginSuccess }) {
   const { theme, lang, t } = useThemeLang();
   const [username, setUsername] = useState('admin');

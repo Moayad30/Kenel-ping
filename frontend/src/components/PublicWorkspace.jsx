@@ -4,7 +4,7 @@ import {
   PhoneCall, Rocket, CheckCircle2, Snowflake, AlertTriangle, ServerCrash,
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
-  Sun, Moon, Globe, Folder
+  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 
@@ -15,7 +15,7 @@ const ICON_MAP = {
   Volume2, Folder
 };
 
-export default function PublicWorkspace() {
+export default function PublicWorkspace({ extraAdminContent = null, isEmbedded = false }) {
   const { theme, toggleTheme, lang, toggleLang, t } = useThemeLang();
 
   const [categories, setCategories] = useState([]);
@@ -25,28 +25,43 @@ export default function PublicWorkspace() {
     current_item: null,
     queue_length: 0,
     server_volume: 85,
+    cooldown_remaining: 0,
+    audio_device: {
+      device_name: 'HD-Audio Generic (ALC256 Analog)',
+      card_type: 'internal',
+      is_bluetooth: false,
+      is_external_speaker: false,
+      label_ar: 'Ready',
+      label_en: 'Device Audio Ready',
+      card_details: 'Internal Audio Device'
+    },
     settings: { spam_cooldown_enabled: true, cooldown_seconds: 15 }
   });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Custom Speech Box
+  // Custom Speech Input Box
   const [customText, setCustomText] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
   const [isTashkeelLoading, setIsTashkeelLoading] = useState(false);
 
-  // Feedback & Cooldown UI
+  // Audio Device & Volume Control Modal
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [previousVolume, setPreviousVolume] = useState(85);
+
+  // Feedback & Cooldown State
   const [toast, setToast] = useState(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
-  // Fetch initial data
+  // Initialize data and WebSocket connection
   useEffect(() => {
     fetchCategories();
     fetchPresets();
     fetchStatus();
 
-    // Setup WebSocket for real-time status updates
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     let ws = null;
@@ -59,9 +74,12 @@ export default function PublicWorkspace() {
           const data = JSON.parse(event.data);
           if (data && data.status) {
             setSystemState(data);
+            if (data.cooldown_remaining !== undefined && data.cooldown_remaining > 0) {
+              setCooldownRemaining(data.cooldown_remaining);
+            }
           }
         } catch {
-          // ignore non-json
+          // Ignore non-json socket packets
         }
       };
 
@@ -73,7 +91,7 @@ export default function PublicWorkspace() {
         }, 15000);
       };
     } catch (err) {
-      console.error("WS error:", err);
+      console.error("WebSocket connection error:", err);
     }
 
     return () => {
@@ -82,7 +100,7 @@ export default function PublicWorkspace() {
     };
   }, []);
 
-  // Cooldown countdown timer
+  // Cooldown countdown interval
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
     const timer = setInterval(() => {
@@ -132,12 +150,44 @@ export default function PublicWorkspace() {
       if (res.ok) {
         const data = await res.json();
         setSystemState(data);
+        if (data.cooldown_remaining !== undefined && data.cooldown_remaining > 0) {
+          setCooldownRemaining(data.cooldown_remaining);
+        }
       }
     } catch (e) {
       console.error(e);
     }
   };
 
+  // Adjust output volume directly
+  const handleSetVolume = async (newVolume) => {
+    const vol = Math.max(0, Math.min(100, Number(newVolume)));
+    setSystemState(prev => ({ ...prev, server_volume: vol }));
+    try {
+      await fetch('/api/volume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: vol })
+      });
+    } catch (err) {
+      console.error("Error setting volume:", err);
+    }
+  };
+
+  // Toggle Mute
+  const handleToggleMute = async () => {
+    if (isMuted) {
+      const restoreVol = previousVolume > 0 ? previousVolume : 60;
+      setIsMuted(false);
+      await handleSetVolume(restoreVol);
+    } else {
+      setPreviousVolume(systemState.server_volume);
+      setIsMuted(true);
+      await handleSetVolume(0);
+    }
+  };
+
+  // Trigger announcement preset
   const handleSpeakPreset = async (preset) => {
     if (cooldownRemaining > 0) {
       showToast(t.cooldownWarning.replace('{seconds}', cooldownRemaining), 'warning');
@@ -164,6 +214,7 @@ export default function PublicWorkspace() {
     }
   };
 
+  // Diacritize Arabic text
   const handleTashkeel = async () => {
     if (!customText.trim() || isTashkeelLoading) return;
     setIsTashkeelLoading(true);
@@ -185,6 +236,7 @@ export default function PublicWorkspace() {
     }
   };
 
+  // Submit free text speech
   const handleCustomSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!customText.trim()) return;
@@ -200,7 +252,7 @@ export default function PublicWorkspace() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: customTitle.trim() || (lang === 'en' ? 'Team Announcement' : 'نداء حر من الفريق'),
+          title: customTitle.trim() || t.freeSpeechTitle,
           text: customText.trim(),
           lang: lang
         })
@@ -225,30 +277,32 @@ export default function PublicWorkspace() {
     }
   };
 
+  // Filter presets by search and category
   const filteredPresets = useMemo(() => {
     return presets.filter((p) => {
       const matchesCategory =
         selectedCategory === 'all' ||
         p.category_id === selectedCategory ||
-        p.category === selectedCategory;
+        p.category === selectedCategory ||
+        (selectedCategory === 'uncategorized' && (!p.category_id || p.category_id === 'uncategorized'));
 
       const q = searchQuery.toLowerCase().trim();
       if (!q) return matchesCategory;
 
-      const titleAr = (p.title_ar || p.title || '').toLowerCase();
-      const titleEn = (p.title_en || '').toLowerCase();
-      const textAr = (p.text_ar || p.text || '').toLowerCase();
-      const textEn = (p.text_en || '').toLowerCase();
+      const title = (p.title || p.title_ar || p.title_en || '').toLowerCase();
+      const text = (p.text || p.text_ar || p.text_en || '').toLowerCase();
 
-      const matchesSearch =
-        titleAr.includes(q) ||
-        titleEn.includes(q) ||
-        textAr.includes(q) ||
-        textEn.includes(q);
-
-      return matchesCategory && matchesSearch;
+      return matchesCategory && (title.includes(q) || text.includes(q));
     });
   }, [presets, selectedCategory, searchQuery]);
+
+  // Determine current status label
+  const getStatusLabel = () => {
+    if (systemState.status === 'speaking') return t.statusSpeaking;
+    if (systemState.status === 'queued') return `${t.statusQueued} (${systemState.queue_length})`;
+    if (systemState.audio_device?.is_external_speaker) return t.statusSpeakerReady;
+    return t.statusDeviceReady;
+  };
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#070C1B] text-slate-100' : 'bg-[#F8FAFC] text-slate-800'} pb-16 transition-colors duration-200`}>
@@ -265,109 +319,248 @@ export default function PublicWorkspace() {
       )}
 
       {/* Top Header */}
-      <header className={`sticky top-0 z-40 backdrop-blur-lg border-b px-4 lg:px-8 py-3.5 shadow-xl transition-colors duration-200 ${
-        theme === 'dark' ? 'bg-[#0B132B]/90 border-[#1F3152]' : 'bg-white/90 border-slate-200 shadow-slate-100'
-      }`}>
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          
-          {/* Brand Identity with User Uploaded Logo */}
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 bg-white border border-slate-200/60 shadow-sm transition-all">
-              <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain" />
+      {!isEmbedded && (
+        <header className={`sticky top-0 z-40 backdrop-blur-lg border-b px-4 lg:px-8 py-3.5 shadow-xl transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-[#0B132B]/90 border-[#1F3152]' : 'bg-white/90 border-slate-200 shadow-slate-100'
+        }`}>
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Brand Logo & Name */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 bg-white border border-slate-200/60 shadow-sm transition-all">
+                <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <h1 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {t.appName}
+                </h1>
+                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {t.appSubtitle}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                {t.appName}
-              </h1>
-              <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                {t.appSubtitle}
-              </p>
+
+            {/* Header Controls: Status Pill, Member Volume, Cooldown, Theme, Language */}
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              
+              {/* Clickable Live Audio Status Pill */}
+              <button
+                onClick={() => setIsAudioModalOpen(true)}
+                title={t.deviceAudioSettingsTitle}
+                className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold cursor-pointer transition-all hover:scale-105 ${
+                  theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] hover:border-[#00D2FF]/60' : 'bg-slate-100 border-slate-200 hover:border-sky-400'
+                }`}
+              >
+                {systemState.status === 'speaking' ? (
+                  <>
+                    <div className="flex items-end gap-1 h-4">
+                      <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs font-bold text-[#00D2FF]">{t.statusSpeaking}</span>
+                  </>
+                ) : systemState.status === 'queued' ? (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                    <span className="text-xs font-bold text-amber-500">
+                      {t.statusQueued} ({systemState.queue_length})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px_#34D399] ${
+                      systemState.audio_device?.is_external_speaker ? 'bg-emerald-400' : 'bg-cyan-400'
+                    }`} />
+                    <span className={`text-xs font-medium ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                      {getStatusLabel()}
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {/* Clickable Member Volume Badge */}
+              <button
+                onClick={() => setIsAudioModalOpen(true)}
+                title={t.volume}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono cursor-pointer transition-all hover:scale-105 ${
+                  theme === 'dark' 
+                    ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:border-[#00D2FF]/60' 
+                    : 'bg-slate-100 border-slate-200 text-slate-700 hover:border-sky-400'
+                }`}
+              >
+                {systemState.server_volume === 0 ? (
+                  <VolumeX className="w-3.5 h-3.5 text-rose-500" />
+                ) : (
+                  <Volume2 className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
+                )}
+                <span className="font-bold">{systemState.server_volume}%</span>
+              </button>
+
+              {/* Universal Cooldown Timer Badge */}
+              {cooldownRemaining > 0 && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs text-amber-500 font-mono font-bold animate-pulse">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{cooldownRemaining}s</span>
+                </div>
+              )}
+
+              {/* Theme Switcher Button */}
+              <button
+                onClick={toggleTheme}
+                title={t.themeToggle}
+                className={`p-2 rounded-xl border transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-[#121C33] border-[#1F3152] text-amber-400 hover:bg-[#1C2A47]' 
+                    : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+
+              {/* Language Switcher Button */}
+              <button
+                onClick={toggleLang}
+                title="Change Language"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                  theme === 'dark'
+                    ? 'bg-[#121C33] border-[#1F3152] text-[#00D2FF] hover:bg-[#1C2A47]'
+                    : 'bg-slate-100 border-slate-200 text-sky-700 hover:bg-slate-200'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>{t.langToggle}</span>
+              </button>
+
             </div>
           </div>
+        </header>
+      )}
 
-          {/* Controls: Speaker Status, Volume, Theme Toggle, Language Toggle */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            
-            {/* Live Speaker Status Pill */}
-            <div className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-              theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-100 border-slate-200'
-            }`}>
-              {systemState.status === 'speaking' ? (
-                <>
-                  <div className="flex items-end gap-1 h-4">
-                    <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 bg-[#00D2FF] rounded-full animate-sound-wave" style={{ animationDelay: '300ms' }} />
-                  </div>
-                  <span className="text-xs font-bold text-[#00D2FF]">{t.statusSpeaking}</span>
-                </>
-              ) : systemState.status === 'queued' ? (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                  <span className="text-xs font-bold text-amber-500">
-                    {t.statusQueued} ({systemState.queue_length})
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34D399]" />
-                  <span className={`text-xs font-medium ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>
-                    {t.statusReady}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* Volume Badge */}
-            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono transition-colors ${
-              theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
-            }`}>
-              <Volume2 className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
-              <span>{systemState.server_volume}%</span>
-            </div>
-
-            {/* Cooldown Timer Badge */}
-            {cooldownRemaining > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs text-amber-500 font-mono font-bold animate-pulse">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{cooldownRemaining}s</span>
+      {/* Member Device Audio Settings & Sound Card Modal */}
+      {isAudioModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-lg rounded-3xl p-6 sm:p-7 border shadow-2xl transition-all ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152] text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700/30 mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <Speaker className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">{t.deviceAudioSettingsTitle}</h3>
+                  <p className="text-xs opacity-70">
+                    {t.audioDestinationNotice}
+                  </p>
+                </div>
               </div>
-            )}
+              <button 
+                onClick={() => setIsAudioModalOpen(false)}
+                className="p-2 rounded-xl hover:bg-slate-800/40 text-slate-400 hover:text-white transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            {/* Theme Switcher Button */}
-            <button
-              onClick={toggleTheme}
-              title={t.themeToggle}
-              className={`p-2 rounded-xl border transition-all ${
-                theme === 'dark' 
-                  ? 'bg-[#121C33] border-[#1F3152] text-amber-400 hover:bg-[#1C2A47]' 
-                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+            {/* Connected Sound Card Info Box */}
+            <div className={`p-4 rounded-2xl border mb-6 ${
+              theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-cyan-400">
+                <Cpu className="w-4 h-4" />
+                <span>{t.activeSoundCardLabel}</span>
+              </div>
+              <p className="font-mono text-sm font-black text-cyan-300 break-words mb-2">
+                {systemState.audio_device?.device_name || 'HD-Audio Generic (ALC256 Analog)'}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className={`px-2.5 py-1 rounded-full font-semibold text-[11px] ${
+                  systemState.audio_device?.is_external_speaker
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                }`}>
+                  {systemState.audio_device?.is_external_speaker ? t.soundCardBluetooth : t.soundCardInternal}
+                </span>
+                <span className="text-[11px] opacity-75">
+                  {t.audioDestinationNotice}
+                </span>
+              </div>
+            </div>
 
-            {/* Language Switcher Button */}
-            <button
-              onClick={toggleLang}
-              title="Change Language / تغيير اللغة"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                theme === 'dark'
-                  ? 'bg-[#121C33] border-[#1F3152] text-[#00D2FF] hover:bg-[#1C2A47]'
-                  : 'bg-slate-100 border-slate-200 text-sky-700 hover:bg-slate-200'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>{t.langToggle}</span>
-            </button>
+            {/* Interactive Volume Slider */}
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">
+                  {t.volumeSliderLabel}
+                </label>
+                <span className="font-mono text-cyan-400 font-extrabold text-lg">
+                  {systemState.server_volume}%
+                </span>
+              </div>
 
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={systemState.server_volume}
+                onChange={(e) => handleSetVolume(e.target.value)}
+                className="w-full h-2.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
+              />
+
+              {/* Quick Volume Preset Buttons */}
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <div className="flex items-center gap-1.5">
+                  {[25, 50, 75, 100].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => handleSetVolume(v)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all ${
+                        systemState.server_volume === v
+                          ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF]'
+                          : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:bg-[#1C2A47]' : 'bg-slate-100 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {v}%
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                    isMuted || systemState.server_volume === 0
+                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                      : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  {isMuted || systemState.server_volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  <span>{isMuted || systemState.server_volume === 0 ? t.unmuteBtn : t.muteBtn}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsAudioModalOpen(false)}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all"
+              >
+                {t.closeBtn}
+              </button>
+            </div>
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Main Container */}
+      {/* Main Workspace Container */}
       <main className="max-w-7xl mx-auto px-4 lg:px-8 mt-6 space-y-8">
         
+        {/* Optional Extra Admin Live Broadcast Studio */}
+        {extraAdminContent}
+
         {/* Search & Dynamic Category Filter Bar */}
         <section className={`p-4 rounded-3xl border shadow-xl flex flex-col md:flex-row gap-4 justify-between items-center transition-colors duration-200 ${
           theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
@@ -396,9 +589,9 @@ export default function PublicWorkspace() {
             )}
           </div>
 
-          {/* Dynamic Category Pills */}
+          {/* Dynamic Category Filter Pills */}
           <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
-            {/* All Category Pill */}
+            {/* All Category */}
             <button
               onClick={() => setSelectedCategory('all')}
               className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
@@ -414,11 +607,17 @@ export default function PublicWorkspace() {
               {t.allCategories} ({presets.length})
             </button>
 
-            {/* Dynamic Categories from API */}
+            {/* Dynamic Categories */}
             {categories.map((cat) => {
-              const count = presets.filter(p => p.category_id === cat.id || p.category === cat.name_ar).length;
+              const count = presets.filter(p => 
+                p.category_id === cat.id || 
+                p.category === cat.name_ar || 
+                (cat.id === 'uncategorized' && (!p.category_id || p.category_id === 'uncategorized'))
+              ).length;
               const isSelected = selectedCategory === cat.id;
-              const catName = lang === 'en' ? (cat.name_en || cat.name_ar) : (cat.name_ar || cat.name_en);
+              const catName = cat.id === 'uncategorized' 
+                ? t.uncategorized 
+                : (lang === 'en' ? (cat.name_en || cat.name_ar) : (cat.name_ar || cat.name_en));
 
               return (
                 <button
@@ -448,7 +647,7 @@ export default function PublicWorkspace() {
           </div>
         </section>
 
-        {/* 20 Presets Grid Section */}
+        {/* Presets Grid Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -465,14 +664,20 @@ export default function PublicWorkspace() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {filteredPresets.map((preset) => {
               const IconComponent = ICON_MAP[preset.icon] || Volume2;
+              // Preset title and text do NOT change on language switch (Requirement 4)
               const title = preset.title || preset.title_ar || preset.title_en || preset.id;
               const text = preset.text || preset.text_ar || preset.text_en || '';
 
-              // Find category name
-              const matchedCat = categories.find(c => c.id === preset.category_id || c.name_ar === preset.category);
-              const categoryBadge = matchedCat 
-                ? (lang === 'en' ? matchedCat.name_en : matchedCat.name_ar) 
-                : (preset.category || t.allCategories);
+              // Find category badge
+              let categoryBadge = t.uncategorized;
+              if (preset.category_id && preset.category_id !== 'uncategorized') {
+                const matchedCat = categories.find(c => c.id === preset.category_id || c.name_ar === preset.category);
+                if (matchedCat) {
+                  categoryBadge = lang === 'en' ? (matchedCat.name_en || matchedCat.name_ar) : (matchedCat.name_ar || matchedCat.name_en);
+                } else if (preset.category) {
+                  categoryBadge = preset.category;
+                }
+              }
 
               return (
                 <div
@@ -515,7 +720,7 @@ export default function PublicWorkspace() {
                     </p>
                   </div>
 
-                  {/* Trigger Button */}
+                  {/* Trigger Button with Active Cooldown Display */}
                   <button
                     onClick={() => handleSpeakPreset(preset)}
                     disabled={cooldownRemaining > 0}
@@ -525,8 +730,17 @@ export default function PublicWorkspace() {
                         : 'bg-slate-100 hover:bg-sky-600 text-slate-700 hover:text-white border-slate-200 hover:border-sky-600'
                     }`}
                   >
-                    <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
-                    <span>{t.speakButton}</span>
+                    {cooldownRemaining > 0 ? (
+                      <>
+                        <Clock className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                        <span>{cooldownRemaining}s</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
+                        <span>{t.speakButton}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               );
@@ -534,7 +748,7 @@ export default function PublicWorkspace() {
           </div>
         </section>
 
-        {/* Lower Row: Free Speech Box with AI Tashkeel */}
+        {/* Free Speech Box with AI Tashkeel and Universal Cooldown */}
         <div className="max-w-4xl mx-auto">
           
           <section className={`border rounded-3xl p-6 sm:p-8 shadow-xl transition-colors duration-200 ${
@@ -587,7 +801,7 @@ export default function PublicWorkspace() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  {/* Action Left: AI Tashkeel & Shortcut */}
+                  {/* AI Tashkeel & Shortcut */}
                   <div className="flex items-center gap-2.5">
                     <button
                       type="button"
@@ -598,7 +812,7 @@ export default function PublicWorkspace() {
                           ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152] hover:border-[#00D2FF]/40'
                           : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
                       }`}
-                      title="تشكيل النص العربي تلقائياً بالذكاء الاصطناعي لضمان النطق السليم"
+                      title={t.tashkeelBtn}
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${isTashkeelLoading ? 'animate-spin' : ''}`} />
                       <span>{isTashkeelLoading ? t.tashkeelProcessing : t.tashkeelBtn}</span>
@@ -609,14 +823,27 @@ export default function PublicWorkspace() {
                     </span>
                   </div>
 
-                  {/* Action Right: Dispatch Button */}
+                  {/* Submit Button with Active Cooldown Display (Requirement 3) */}
                   <button
                     type="submit"
                     disabled={isSubmittingCustom || !customText.trim() || cooldownRemaining > 0}
-                    className="py-2.5 px-7 rounded-2xl bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className={`py-2.5 px-7 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all ${
+                      cooldownRemaining > 0
+                        ? 'bg-slate-800 text-amber-400 border border-amber-500/40 opacity-80 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
                   >
-                    <Send className="w-4 h-4" />
-                    <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
+                    {cooldownRemaining > 0 ? (
+                      <>
+                        <Clock className="w-4 h-4 animate-spin text-amber-400" />
+                        <span>{t.cooldownWaitBtn.replace('{seconds}', cooldownRemaining)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -627,12 +854,14 @@ export default function PublicWorkspace() {
 
       </main>
 
-      {/* Public Footer - Strictly clean with ZERO admin mention */}
-      <footer className={`mt-14 text-center text-xs border-t pt-6 transition-colors duration-200 ${
-        theme === 'dark' ? 'text-slate-500 border-[#1F3152]/40' : 'text-slate-400 border-slate-200'
-      }`}>
-        <p>{t.footerText}</p>
-      </footer>
+      {/* Public Footer */}
+      {!isEmbedded && (
+        <footer className={`mt-14 text-center text-xs border-t pt-6 transition-colors duration-200 ${
+          theme === 'dark' ? 'text-slate-500 border-[#1F3152]/40' : 'text-slate-400 border-slate-200'
+        }`}>
+          <p>{t.footerText}</p>
+        </footer>
+      )}
     </div>
   );
 }

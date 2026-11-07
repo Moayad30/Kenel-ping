@@ -29,14 +29,15 @@ class SettingsModel(BaseModel):
     spam_cooldown_enabled: bool = True
     cooldown_seconds: int = Field(default=15, ge=1, le=120)
     pre_chime_enabled: bool = True
-    chime_tone: str = "airport" # airport, bell, alert
+    chime_tone: str = "airport"  # airport, bell, alert
+    chime_volume: int = Field(default=80, ge=0, le=100)
     bluetooth_wakeup_enabled: bool = True
     server_volume: int = Field(default=85, ge=0, le=100)
     tts_voice_ar: str = "ar-SY-LaithNeural"
     tts_voice_en: str = "en-US-AriaNeural"
     speech_rate: str = "+0%"
     speech_pitch: str = "+0Hz"
-    smart_pronunciation_enabled: bool = True
+    smart_pronunciation_enabled: bool = False
 
     # Legacy support
     @property
@@ -53,8 +54,8 @@ class CategoryModel(BaseModel):
 
 class PresetModel(BaseModel):
     id: str
-    category_id: Optional[str] = None
-    category: Optional[str] = None
+    category_id: Optional[str] = "uncategorized"
+    category: Optional[str] = "Uncategorized"
     title: Optional[str] = None
     title_ar: Optional[str] = None
     title_en: Optional[str] = None
@@ -69,7 +70,7 @@ class AuditEntry(BaseModel):
     timestamp: str
     text: str
     title: Optional[str] = None
-    source: str # "preset" | "free_text" | "device_call"
+    source: str  # "preset" | "free_text" | "device_call" | "admin_voice"
     sender_ip: Optional[str] = None
     language: Optional[str] = "ar"
 
@@ -78,9 +79,10 @@ def load_settings() -> SettingsModel:
         try:
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # Map old tts_voice if needed
                 if "tts_voice" in data and "tts_voice_ar" not in data:
                     data["tts_voice_ar"] = data["tts_voice"]
+                if "chime_volume" not in data:
+                    data["chime_volume"] = 80
                 return SettingsModel(**data)
         except Exception:
             pass
