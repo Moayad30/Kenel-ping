@@ -28,6 +28,7 @@ export default function AdminApp() {
   });
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
+  const [testingVoice, setTestingVoice] = useState({ ar: false, en: false });
   const [auditData, setAuditData] = useState({
     total_announcements: 0,
     sources_breakdown: {},
@@ -137,6 +138,74 @@ export default function AdminApp() {
     localStorage.removeItem('kernelping_token');
     setToken('');
     setIsAuthenticated(false);
+  };
+
+  const handleTestVoice = async (voice, langCode) => {
+    setTestingVoice(prev => ({ ...prev, [langCode]: true }));
+    try {
+      const res = await fetch('/api/admin/test-voice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ voice, lang: langCode })
+      });
+      if (res.ok) {
+        showToast(langCode === 'ar' ? 'جاري تشغيل عينة الصوت العربي 🔊' : 'Playing English voice sample 🔊', 'success');
+      } else {
+        showToast(t.errorGeneric, 'error');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    } finally {
+      setTimeout(() => {
+        setTestingVoice(prev => ({ ...prev, [langCode]: false }));
+      }, 1800);
+    }
+  };
+
+  const handleDeleteAuditEntry = async (entryId) => {
+    try {
+      const res = await fetch(`/api/admin/audit/${entryId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast(lang === 'ar' ? 'تم حذف السجل بنجاح' : 'Log entry deleted', 'success');
+        setAuditData(prev => ({
+          ...prev,
+          total_announcements: Math.max(0, prev.total_announcements - 1),
+          recent_entries: prev.recent_entries.filter(e => e.id !== entryId)
+        }));
+      } else {
+        showToast(t.errorGeneric, 'error');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    }
+  };
+
+  const handleClearAllAudit = async () => {
+    if (!window.confirm(t.confirmClearAudit)) return;
+    try {
+      const res = await fetch('/api/admin/audit', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast(lang === 'ar' ? 'تم مسح سجل العمليات بالكامل' : 'All audit logs cleared', 'success');
+        setAuditData({
+          total_announcements: 0,
+          sources_breakdown: {},
+          recent_entries: []
+        });
+      } else {
+        showToast(t.errorGeneric, 'error');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    }
   };
 
   // --- Live Settings Updates ---
@@ -411,20 +480,13 @@ export default function AdminApp() {
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           
           <div className="flex items-center gap-3.5">
-            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 shadow-lg border transition-all ${
-              theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] shadow-[#00D2FF]/20' : 'bg-slate-100 border-slate-200 shadow-slate-200'
-            }`}>
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain filter drop-shadow" />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 bg-white border border-slate-200/60 shadow-sm transition-all">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {t.adminTitle}
-                </h1>
-                <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/30 font-bold">
-                  {t.adminBadge}
-                </span>
-              </div>
+              <h1 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                {t.adminTitle}
+              </h1>
               <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                 {t.adminSubtitle}
               </p>
@@ -577,9 +639,24 @@ export default function AdminApp() {
                 </h4>
 
                 <div>
-                  <label className={`block text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {t.voiceArLabel}
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className={`block text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {t.voiceArLabel}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTestVoice(settings.tts_voice_ar, 'ar')}
+                      disabled={testingVoice.ar}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition-all ${
+                        theme === 'dark'
+                          ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152]'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
+                      }`}
+                    >
+                      <Volume2 className={`w-3 h-3 ${testingVoice.ar ? 'animate-pulse' : ''}`} />
+                      <span>{testingVoice.ar ? t.testingVoice : t.testVoiceBtn}</span>
+                    </button>
+                  </div>
                   <select
                     value={settings.tts_voice_ar}
                     onChange={(e) => updateSetting('tts_voice_ar', e.target.value)}
@@ -594,9 +671,24 @@ export default function AdminApp() {
                 </div>
 
                 <div>
-                  <label className={`block text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {t.voiceEnLabel}
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className={`block text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {t.voiceEnLabel}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTestVoice(settings.tts_voice_en, 'en')}
+                      disabled={testingVoice.en}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition-all ${
+                        theme === 'dark'
+                          ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152]'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
+                      }`}
+                    >
+                      <Volume2 className={`w-3 h-3 ${testingVoice.en ? 'animate-pulse' : ''}`} />
+                      <span>{testingVoice.en ? t.testingVoice : t.testVoiceBtn}</span>
+                    </button>
+                  </div>
                   <select
                     value={settings.tts_voice_en}
                     onChange={(e) => updateSetting('tts_voice_en', e.target.value)}
@@ -604,10 +696,10 @@ export default function AdminApp() {
                       theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500'
                     }`}
                   >
+                    <option value="en-US-BrianMultilingualNeural">en-US-BrianMultilingualNeural (Brian - Approachable & Crisp)</option>
                     <option value="en-US-AriaNeural">en-US-AriaNeural (Aria - Crystal Clear & Professional)</option>
                     <option value="en-US-AndrewMultilingualNeural">en-US-AndrewMultilingualNeural (Andrew - Warm & Confident)</option>
                     <option value="en-US-AvaMultilingualNeural">en-US-AvaMultilingualNeural (Ava - Expressive & Pleasant)</option>
-                    <option value="en-US-BrianMultilingualNeural">en-US-BrianMultilingualNeural (Brian - Approachable & Crisp)</option>
                   </select>
                 </div>
 
@@ -1366,7 +1458,19 @@ export default function AdminApp() {
                 theme === 'dark' ? 'border-[#1F3152]' : 'border-slate-200'
               }`}>
                 <h3 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{t.auditTitle}</h3>
-                <span className="text-xs text-slate-400 font-mono">Live Sync</span>
+                <div className="flex items-center gap-3">
+                  {auditData.recent_entries.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllAudit}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 transition-all flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.clearAllAuditBtn}</span>
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-400 font-mono">Live Sync</span>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -1381,6 +1485,7 @@ export default function AdminApp() {
                       <th className="py-3.5 px-4">{t.auditTextCol}</th>
                       <th className="py-3.5 px-4">{t.auditLangCol}</th>
                       <th className="py-3.5 px-4">{t.auditIpCol}</th>
+                      <th className="py-3.5 px-4 text-center">{t.actions}</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${theme === 'dark' ? 'divide-[#1F3152] text-slate-300' : 'divide-slate-200 text-slate-700'}`}>
@@ -1400,11 +1505,21 @@ export default function AdminApp() {
                         <td className="py-3 px-4 max-w-md truncate">{log.text}</td>
                         <td className="py-3 px-4 font-mono uppercase text-[10px] font-bold text-sky-500">{log.language || 'AR'}</td>
                         <td className="py-3 px-4 font-mono text-slate-400">{log.sender_ip}</td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAuditEntry(log.id)}
+                            title={t.deleteEntryBtn}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {auditData.recent_entries.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-400">
+                        <td colSpan={7} className="py-8 text-center text-slate-400">
                           {t.noAuditYet}
                         </td>
                       </tr>
@@ -1464,10 +1579,8 @@ function AdminLogin({ onLoginSuccess }) {
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#00D2FF]/10 rounded-full blur-2xl pointer-events-none" />
         
         <div className="text-center mb-6">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3.5 p-2 shadow-lg border transition-all ${
-            theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] shadow-[#00D2FF]/20' : 'bg-slate-50 border-slate-200 shadow-slate-200'
-          }`}>
-            <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain filter drop-shadow" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3.5 p-2 bg-white border border-slate-200/60 shadow-sm transition-all">
+            <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
             {t.loginTitle}

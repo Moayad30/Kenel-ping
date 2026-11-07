@@ -116,13 +116,35 @@ class AudioEngine:
         self.status: str = "ready" # "ready" | "speaking" | "queued"
         self.current_item: Optional[dict] = None
         self.active_websockets: Set[WebSocket] = set()
+        self.last_enqueued_time: float = 0.0
         self.last_speech_time: float = 0.0
         self.worker_task: Optional[asyncio.Task] = None
+        self.volume_monitor_task: Optional[asyncio.Task] = None
+        self._last_known_volume: Optional[int] = None
         self._current_process: Optional[asyncio.subprocess.Process] = None
 
     def start(self):
         if not self.worker_task or self.worker_task.done():
             self.worker_task = asyncio.create_task(self._queue_worker())
+        if not self.volume_monitor_task or self.volume_monitor_task.done():
+            self.volume_monitor_task = asyncio.create_task(self._volume_monitor_loop())
+
+    async def _volume_monitor_loop(self):
+        """Continuously watch system audio sink volume to sync with website slider in real-time"""
+        self._last_known_volume = self.get_volume_sync()
+        while True:
+            await asyncio.sleep(1.0)
+            try:
+                current_vol = self.get_volume_sync()
+                if self._last_known_volume is not None and current_vol != self._last_known_volume:
+                    self._last_known_volume = current_vol
+                    settings = load_settings()
+                    if settings.server_volume != current_vol:
+                        settings.server_volume = current_vol
+                        save_settings(settings)
+                    await self.broadcast_state()
+            except Exception as e:
+                pass
 
     async def connect_ws(self, websocket: WebSocket):
         await websocket.accept()
@@ -189,10 +211,12 @@ class AudioEngine:
         settings = load_settings()
         if not settings.spam_cooldown_enabled:
             return True, 0
+        if self.last_enqueued_time <= 0:
+            return True, 0
         now = time.time()
-        elapsed = now - self.last_speech_time
+        elapsed = now - self.last_enqueued_time
         remaining = int(settings.cooldown_seconds - elapsed)
-        if remaining > 0 and self.last_speech_time > 0:
+        if remaining > 0:
             return False, remaining
         return True, 0
 
@@ -294,6 +318,7 @@ class AudioEngine:
             "language": detected_lang
         }
 
+        self.last_enqueued_time = time.time()
         self.last_speech_time = time.time()
         await self.queue.put(item)
         if self.status == "ready":
@@ -307,7 +332,6 @@ class AudioEngine:
             try:
                 self.status = "speaking"
                 self.current_item = item
-                self.last_speech_time = time.time()
                 await self.broadcast_state()
 
                 settings = load_settings()
@@ -356,7 +380,6 @@ class AudioEngine:
                 print(f"Error executing speech queue item: {ex}")
             finally:
                 self.current_item = None
-                self.last_speech_time = time.time()
                 self.queue.task_done()
                 if self.queue.empty():
                     self.status = "ready"

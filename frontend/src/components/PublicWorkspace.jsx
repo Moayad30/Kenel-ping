@@ -34,22 +34,11 @@ export default function PublicWorkspace() {
   const [customText, setCustomText] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
-
-  // Device / Member Callout
-  const [callTarget, setCallTarget] = useState('');
-  const [callMessage, setCallMessage] = useState('');
-  const [isSubmittingCall, setIsSubmittingCall] = useState(false);
+  const [isTashkeelLoading, setIsTashkeelLoading] = useState(false);
 
   // Feedback & Cooldown UI
   const [toast, setToast] = useState(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
-
-  // Initialize callTarget default once translations load
-  useEffect(() => {
-    if (!callTarget && t.callTargets?.length) {
-      setCallTarget(t.callTargets[0]);
-    }
-  }, [t.callTargets]);
 
   // Fetch initial data
   useEffect(() => {
@@ -155,10 +144,10 @@ export default function PublicWorkspace() {
       return;
     }
 
-    const title = lang === 'en' ? (preset.title_en || preset.title) : (preset.title_ar || preset.title);
+    const title = preset.title || preset.title_ar || preset.title_en || preset.id;
 
     try {
-      const res = await fetch(`/api/speak/preset/${preset.id}?lang=${lang}`, { method: 'POST' });
+      const res = await fetch(`/api/speak/preset/${preset.id}`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
         showToast(t.speakSuccess.replace('{title}', title), 'success');
@@ -175,8 +164,29 @@ export default function PublicWorkspace() {
     }
   };
 
+  const handleTashkeel = async () => {
+    if (!customText.trim() || isTashkeelLoading) return;
+    setIsTashkeelLoading(true);
+    try {
+      const res = await fetch('/api/tashkeel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: customText })
+      });
+      const data = await res.json();
+      if (res.ok && data.diacritized) {
+        setCustomText(data.diacritized);
+        showToast(t.tashkeelSuccess, 'success');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    } finally {
+      setIsTashkeelLoading(false);
+    }
+  };
+
   const handleCustomSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!customText.trim()) return;
 
     if (cooldownRemaining > 0) {
@@ -212,44 +222,6 @@ export default function PublicWorkspace() {
       showToast(t.errorNetwork, 'error');
     } finally {
       setIsSubmittingCustom(false);
-    }
-  };
-
-  const handleCallSubmit = async (e) => {
-    e.preventDefault();
-    if (!callTarget.trim()) return;
-
-    if (cooldownRemaining > 0) {
-      showToast(t.cooldownWarning.replace('{seconds}', cooldownRemaining), 'warning');
-      return;
-    }
-
-    setIsSubmittingCall(true);
-    try {
-      const res = await fetch('/api/speak/call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target: callTarget,
-          message: callMessage,
-          lang: lang
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(t.callSuccess.replace('{target}', callTarget), 'success');
-        if (systemState.settings?.spam_cooldown_enabled) {
-          setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
-        }
-      } else if (res.status === 429) {
-        showToast(data.detail, 'warning');
-      } else {
-        showToast(data.detail || t.errorGeneric, 'error');
-      }
-    } catch {
-      showToast(t.errorNetwork, 'error');
-    } finally {
-      setIsSubmittingCall(false);
     }
   };
 
@@ -300,26 +272,13 @@ export default function PublicWorkspace() {
           
           {/* Brand Identity with User Uploaded Logo */}
           <div className="flex items-center gap-3.5">
-            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 shadow-lg ring-1 transition-all ${
-              theme === 'dark' 
-                ? 'bg-gradient-to-br from-[#0B132B] to-[#162238] shadow-[#00D2FF]/20 ring-[#00D2FF]/30' 
-                : 'bg-white shadow-sky-200/50 ring-sky-300'
-            }`}>
-              <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain filter drop-shadow" />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 bg-white border border-slate-200/60 shadow-sm transition-all">
+              <img src="/logo.png" alt="Kernel Ping Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {t.appName}
-                </h1>
-                <span className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold border transition-colors ${
-                  theme === 'dark' 
-                    ? 'bg-[#00D2FF]/10 text-[#00D2FF] border-[#00D2FF]/30' 
-                    : 'bg-sky-50 text-sky-700 border-sky-200'
-                }`}>
-                  {t.badgeLabel}
-                </span>
-              </div>
+              <h1 className={`text-xl font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                {t.appName}
+              </h1>
               <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                 {t.appSubtitle}
               </p>
@@ -506,14 +465,14 @@ export default function PublicWorkspace() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {filteredPresets.map((preset) => {
               const IconComponent = ICON_MAP[preset.icon] || Volume2;
-              const title = lang === 'en' ? (preset.title_en || preset.title) : (preset.title_ar || preset.title);
-              const text = lang === 'en' ? (preset.text_en || preset.text) : (preset.text_ar || preset.text);
+              const title = preset.title || preset.title_ar || preset.title_en || preset.id;
+              const text = preset.text || preset.text_ar || preset.text_en || '';
 
               // Find category name
               const matchedCat = categories.find(c => c.id === preset.category_id || c.name_ar === preset.category);
               const categoryBadge = matchedCat 
                 ? (lang === 'en' ? matchedCat.name_en : matchedCat.name_ar) 
-                : preset.category;
+                : (preset.category || t.allCategories);
 
               return (
                 <div
@@ -575,133 +534,51 @@ export default function PublicWorkspace() {
           </div>
         </section>
 
-        {/* Lower Row: Free Speech Box & Device Callout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Lower Row: Free Speech Box with AI Tashkeel */}
+        <div className="max-w-4xl mx-auto">
           
-          {/* Free Text-to-Speech Box */}
-          <section className={`border rounded-3xl p-6 shadow-xl flex flex-col justify-between transition-colors duration-200 ${
+          <section className={`border rounded-3xl p-6 sm:p-8 shadow-xl transition-colors duration-200 ${
             theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
           }`}>
             <div>
-              <div className="flex items-center justify-between mb-3.5">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-9 h-9 rounded-2xl flex items-center justify-center border ${
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${
                     theme === 'dark' ? 'bg-[#00D2FF]/10 border-[#00D2FF]/30 text-[#00D2FF]' : 'bg-sky-50 border-sky-200 text-sky-600'
                   }`}>
-                    <Mic className="w-4 h-4" />
+                    <Mic className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    <h2 className={`font-bold text-base ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                       {t.freeSpeechTitle}
                     </h2>
-                    <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       {t.freeSpeechSubtitle}
                     </p>
                   </div>
                 </div>
-                <span className={`text-xs font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                <span className={`text-xs font-mono font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                   {customText.length}/400
                 </span>
               </div>
 
-              <form onSubmit={handleCustomSubmit} className="space-y-3.5">
-                <textarea
-                  rows={3}
-                  maxLength={400}
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                  placeholder={t.freeSpeechPlaceholder}
-                  className={`w-full border rounded-2xl p-3.5 text-sm transition-all resize-none focus:outline-none ${
-                    theme === 'dark'
-                      ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
-                      : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
-                  }`}
-                />
-
-                {/* Quick Phrases */}
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  <span className={`text-[11px] font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {t.quickSuggestions}
-                  </span>
-                  {t.quickSuggestionsList?.map((phrase) => (
-                    <button
-                      type="button"
-                      key={phrase}
-                      onClick={() => setCustomText(phrase)}
-                      className={`text-[11px] px-2.5 py-1 rounded-xl border transition-colors ${
-                        theme === 'dark'
-                          ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300 border-[#1F3152]'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      {phrase}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmittingCustom || !customText.trim() || cooldownRemaining > 0}
-                    className="py-2.5 px-6 rounded-2xl bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </section>
-
-          {/* Device & Member Callout */}
-          <section className={`border rounded-3xl p-6 shadow-xl flex flex-col justify-between transition-colors duration-200 ${
-            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
-          }`}>
-            <div>
-              <div className="flex items-center gap-2.5 mb-3.5">
-                <div className="w-9 h-9 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500">
-                  <Bell className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    {t.calloutTitle}
-                  </h2>
-                  <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {t.calloutSubtitle}
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleCallSubmit} className="space-y-3.5">
-                <div>
-                  <label className={`block text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {t.targetLabel}
-                  </label>
-                  <select
-                    value={callTarget}
-                    onChange={(e) => setCallTarget(e.target.value)}
-                    className={`w-full border rounded-2xl px-4 py-2.5 text-xs transition-all focus:outline-none ${
-                      theme === 'dark'
-                        ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]'
-                        : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-sky-500'
-                    }`}
-                  >
-                    {t.callTargets?.map((target) => (
-                      <option key={target} value={target}>{target}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={`block text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {t.messageLabel}
-                  </label>
-                  <input
-                    type="text"
-                    value={callMessage}
-                    onChange={(e) => setCallMessage(e.target.value)}
-                    placeholder={t.callMessagePlaceholder}
-                    className={`w-full border rounded-2xl px-4 py-2.5 text-xs transition-all focus:outline-none ${
+              <form onSubmit={handleCustomSubmit} className="space-y-4">
+                <div className="relative">
+                  <textarea
+                    rows={4}
+                    maxLength={400}
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        if (customText.trim() && !isSubmittingCustom && cooldownRemaining <= 0) {
+                          handleCustomSubmit(e);
+                        }
+                      }
+                    }}
+                    placeholder={t.freeSpeechPlaceholder}
+                    className={`w-full border rounded-2xl p-4 text-sm sm:text-base leading-relaxed transition-all resize-none focus:outline-none ${
                       theme === 'dark'
                         ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
                         : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
@@ -709,14 +586,37 @@ export default function PublicWorkspace() {
                   />
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  {/* Action Left: AI Tashkeel & Shortcut */}
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleTashkeel}
+                      disabled={isTashkeelLoading || !customText.trim()}
+                      className={`py-2 px-3.5 rounded-xl border font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                        theme === 'dark'
+                          ? 'bg-[#162238] hover:bg-[#1F3152] text-[#00D2FF] border-[#1F3152] hover:border-[#00D2FF]/40'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
+                      }`}
+                      title="تشكيل النص العربي تلقائياً بالذكاء الاصطناعي لضمان النطق السليم"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isTashkeelLoading ? 'animate-spin' : ''}`} />
+                      <span>{isTashkeelLoading ? t.tashkeelProcessing : t.tashkeelBtn}</span>
+                    </button>
+
+                    <span className={`text-[11px] font-mono hidden sm:inline-block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {t.ctrlEnterHint}
+                    </span>
+                  </div>
+
+                  {/* Action Right: Dispatch Button */}
                   <button
                     type="submit"
-                    disabled={isSubmittingCall || !callTarget.trim() || cooldownRemaining > 0}
-                    className="py-2.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-400 hover:to-amber-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    disabled={isSubmittingCustom || !customText.trim() || cooldownRemaining > 0}
+                    className="py-2.5 px-7 rounded-2xl bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    <Bell className="w-3.5 h-3.5 animate-bounce" />
-                    <span>{isSubmittingCall ? t.callSubmitting : t.callButton}</span>
+                    <Send className="w-4 h-4" />
+                    <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
                   </button>
                 </div>
               </form>

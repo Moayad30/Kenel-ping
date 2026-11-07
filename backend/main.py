@@ -1,4 +1,5 @@
 import os
+import uuid
 import asyncio
 from typing import Optional, List
 from contextlib import asynccontextmanager
@@ -10,10 +11,11 @@ from backend.config import (
     load_settings, save_settings, SettingsModel,
     load_presets, save_presets, PresetModel,
     load_categories, save_categories, CategoryModel,
-    load_audit, save_audit, PRESETS_DIR, CHIMES_DIR, BASE_DIR
+    load_audit, save_audit, PRESETS_DIR, CHIMES_DIR, TEMP_DIR, BASE_DIR
 )
 from backend.auth import authenticate_admin, create_access_token, require_admin
 from backend.audio_engine import audio_engine, detect_language
+from backend.tashkeel import diacritize_arabic
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,6 +55,14 @@ class VolumeRequest(BaseModel):
 class TestChimeRequest(BaseModel):
     tone: str # airport | bell | alert
 
+class TestVoiceRequest(BaseModel):
+    voice: str
+    text: Optional[str] = None
+    lang: Optional[str] = None
+
+class TashkeelRequest(BaseModel):
+    text: str
+
 # ----------------- WebSocket -----------------
 
 @app.websocket("/ws")
@@ -85,10 +95,10 @@ async def get_public_presets():
     return presets
 
 @app.post("/api/speak/preset/{preset_id}")
-async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Query(default="ar")):
+async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Query(default=None)):
     can_proceed, remaining = audio_engine.check_cooldown()
     if not can_proceed:
-        msg = f"يرجى الانتظار {remaining} ثانية قبل إرسال نداء جديد لمنع الإزعاج" if lang == "ar" else f"Please wait {remaining}s before sending another announcement"
+        msg = f"يرجى الانتظار {remaining} ثانية قبل إرسال نداء جديد لمنع الإزعاج" if lang != "en" else f"Please wait {remaining}s before sending another announcement"
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=msg)
     
     presets = load_presets()
@@ -96,13 +106,10 @@ async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Q
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found" if lang == "en" else "الجملة غير موجودة")
 
-    # Select bilingual text
-    if lang == "en" and preset.text_en:
-        speech_text = preset.text_en
-        speech_title = preset.title_en or preset.title or preset.id
-    else:
-        speech_text = preset.text_ar or preset.text or ""
-        speech_title = preset.title_ar or preset.title or preset.id
+    # Decouple preset text from UI language: preset has its own defined single text & title
+    speech_text = preset.text or preset.text_ar or preset.text_en or ""
+    speech_title = preset.title or preset.title_ar or preset.title_en or preset.id
+    preset_lang = detect_language(speech_text)
 
     client_ip = request.client.host if request.client else "Local"
     item = await audio_engine.enqueue(
@@ -111,7 +118,7 @@ async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Q
         source="preset",
         preset_id=preset.id,
         sender_ip=client_ip,
-        lang=lang
+        lang=preset_lang
     )
     return {"success": True, "message": "Queued successfully" if lang == "en" else "تمت إضافة النداء إلى الطابور بنجاح", "item": item}
 
@@ -140,6 +147,19 @@ async def speak_custom(payload: SpeakCustomRequest, request: Request):
         lang=lang
     )
     return {"success": True, "message": "Queued" if lang == "en" else "تمت إضافة النص الحر إلى الطابور بنجاح", "item": item}
+
+@app.post("/api/tashkeel")
+async def tashkeel_text(payload: TashkeelRequest):
+    raw_text = payload.text.strip()
+    if not raw_text:
+        return {"success": True, "original": "", "diacritized": ""}
+    
+    diacritized = diacritize_arabic(raw_text)
+    return {
+        "success": True,
+        "original": raw_text,
+        "diacritized": diacritized
+    }
 
 @app.post("/api/speak/call")
 async def speak_device_or_person(payload: SpeakCallRequest, request: Request):
@@ -372,6 +392,20 @@ async def admin_get_audit(admin: dict = Depends(require_admin)):
         "recent_entries": last_20
     }
 
+@app.delete("/api/admin/audit/{entry_id}")
+async def admin_delete_audit_entry(entry_id: str, admin: dict = Depends(require_admin)):
+    audit = load_audit()
+    filtered = [e for e in audit if e.get("id") != entry_id]
+    if len(filtered) == len(audit):
+        raise HTTPException(status_code=404, detail="Audit entry not found")
+    save_audit(filtered)
+    return {"success": True, "deleted_id": entry_id}
+
+@app.delete("/api/admin/audit")
+async def admin_clear_audit(admin: dict = Depends(require_admin)):
+    save_audit([])
+    return {"success": True, "message": "All audit records cleared successfully"}
+
 @app.post("/api/admin/test-chime")
 async def admin_test_chime(payload: TestChimeRequest, admin: dict = Depends(require_admin)):
     tone_file = CHIMES_DIR / f"{payload.tone}.mp3"
@@ -379,6 +413,25 @@ async def admin_test_chime(payload: TestChimeRequest, admin: dict = Depends(requ
         raise HTTPException(status_code=404, detail="Chime file not found")
     asyncio.create_task(audio_engine.play_audio_file(tone_file))
     return {"success": True, "message": f"Playing {payload.tone} chime"}
+
+@app.post("/api/admin/test-voice")
+async def admin_test_voice(payload: TestVoiceRequest, admin: dict = Depends(require_admin)):
+    lang = payload.lang or ("ar" if payload.voice.startswith("ar-") else "en")
+    sample_text = payload.text
+    if not sample_text:
+        if lang == "ar":
+            sample_text = "مرحباً بكم، هذا اختبار مباشر لجودة ونبرة الصوت المختار في نظام كيرنال بينغ."
+        else:
+            sample_text = "Hello, this is a live audio test for the selected voice model in Kernel Ping."
+    
+    test_file = TEMP_DIR / f"test_{uuid.uuid4().hex[:8]}.mp3"
+    try:
+        await audio_engine.generate_tts(sample_text, test_file, voice=payload.voice)
+        if test_file.exists():
+            asyncio.create_task(audio_engine.play_audio_file(test_file))
+        return {"success": True, "message": f"Voice test triggered for {payload.voice}", "voice": payload.voice}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS generation error: {str(e)}")
 
 # ----------------- Static SPA Support for Production / Debian 13 -----------------
 from fastapi.staticfiles import StaticFiles
