@@ -50,7 +50,7 @@ class SettingsModel(BaseModel):
         return self.tts_voice_ar
 
 class CategoryModel(BaseModel):
-    id: str
+    id: Optional[str] = None
     name_ar: str
     name_en: str
     icon: Optional[str] = "Folder"
@@ -153,7 +153,8 @@ def load_audit() -> List[dict]:
 
 def save_audit(audit_entries: List[dict]):
     with open(AUDIT_FILE, "w", encoding="utf-8") as f:
-        json.dump(audit_entries[-100:], f, ensure_ascii=False, indent=2)
+        # Retain comprehensive audit history (up to 50,000 entries) without premature truncation
+        json.dump(audit_entries[-50000:], f, ensure_ascii=False, indent=2)
 
 def load_routines() -> List[RoutineModel]:
     if ROUTINES_FILE.exists():

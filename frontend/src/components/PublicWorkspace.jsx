@@ -62,47 +62,81 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
   const [toast, setToast] = useState(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
-  // Initialize data and WebSocket connection
+  // Initialize data, auto-reconnecting WebSocket, and fallback polling
   useEffect(() => {
     fetchCategories();
     fetchPresets();
     fetchStatus();
 
+    // Fallback polling every 1500ms to guarantee zero UI lag and resilient sync across clients
+    const statusPollTimer = setInterval(() => {
+      fetchStatus();
+    }, 1500);
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     let ws = null;
     let pingInterval = null;
+    let reconnectTimeout = null;
+    let isDisposed = false;
 
-    try {
-      ws = new WebSocket(wsUrl);
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data && data.status) {
-            setSystemState(data);
-            if (data.cooldown_remaining !== undefined && data.cooldown_remaining > 0) {
-              setCooldownRemaining(data.cooldown_remaining);
+    const connectWebSocket = () => {
+      if (isDisposed) return;
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (pingInterval) clearInterval(pingInterval);
+          pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send('ping');
             }
-          }
-        } catch {
-          // Ignore non-json socket packets
-        }
-      };
+          }, 15000);
+        };
 
-      ws.onopen = () => {
-        pingInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send("ping");
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.status) {
+              setSystemState(data);
+              if (data.cooldown_remaining !== undefined && data.cooldown_remaining > 0) {
+                setCooldownRemaining(data.cooldown_remaining);
+              }
+            }
+          } catch {
+            // Ignore non-json socket packets
           }
-        }, 15000);
-      };
-    } catch (err) {
-      console.error("WebSocket connection error:", err);
-    }
+        };
+
+        ws.onclose = () => {
+          if (pingInterval) clearInterval(pingInterval);
+          if (!isDisposed) {
+            reconnectTimeout = setTimeout(connectWebSocket, 1500);
+          }
+        };
+
+        ws.onerror = () => {
+          if (ws) {
+            try { ws.close(); } catch {}
+          }
+        };
+      } catch {
+        if (!isDisposed) {
+          reconnectTimeout = setTimeout(connectWebSocket, 2000);
+        }
+      }
+    };
+
+    connectWebSocket();
 
     return () => {
+      isDisposed = true;
+      if (statusPollTimer) clearInterval(statusPollTimer);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (pingInterval) clearInterval(pingInterval);
-      if (ws) ws.close();
+      if (ws) {
+        try { ws.close(); } catch {}
+      }
     };
   }, []);
 
@@ -139,17 +173,26 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
   };
 
   const handleStopAudio = async () => {
+    // Optimistically update to ready immediately
+    setSystemState((prev) => ({
+      ...prev,
+      status: 'ready',
+      current_item: null
+    }));
     try {
       const res = await fetch('/api/audio/stop', { method: 'POST' });
       if (res.ok) {
         showToast(t.audioStoppedMsg || 'Audio stopped immediately ⏹️');
       } else if (res.status === 403) {
+        fetchStatus();
         showToast(t.stopAudioAdminVoiceDenied || 'Admin live voice broadcast cannot be stopped by members', 'error');
       } else {
+        fetchStatus();
         const err = await res.json().catch(() => ({}));
         showToast(err.detail || t.errorNetwork, 'error');
       }
     } catch {
+      fetchStatus();
       showToast(t.errorNetwork, 'error');
     }
   };
@@ -234,6 +277,13 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
     const title = preset.title || preset.title_ar || preset.title_en || preset.id;
 
+    // Optimistically update status to speaking immediately
+    setSystemState((prev) => ({
+      ...prev,
+      status: 'speaking',
+      current_item: { title, id: preset.id }
+    }));
+
     try {
       const res = await fetch(`/api/speak/preset/${preset.id}`, { method: 'POST' });
       const data = await res.json();
@@ -242,12 +292,16 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
         if (systemState.settings?.spam_cooldown_enabled) {
           setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
         }
-      } else if (res.status === 429) {
-        showToast(data.detail, 'warning');
       } else {
-        showToast(data.detail || t.errorGeneric, 'error');
+        fetchStatus();
+        if (res.status === 429) {
+          showToast(data.detail, 'warning');
+        } else {
+          showToast(data.detail || t.errorGeneric, 'error');
+        }
       }
     } catch {
+      fetchStatus();
       showToast(t.errorNetwork, 'error');
     }
   };
@@ -290,6 +344,13 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
     }
 
     setIsSubmittingCustom(true);
+    // Optimistically update status to speaking immediately
+    setSystemState((prev) => ({
+      ...prev,
+      status: 'speaking',
+      current_item: { title: customTitle.trim() || t.freeSpeechTitle, text: customText.trim() }
+    }));
+
     try {
       const res = await fetch('/api/speak/custom', {
         method: 'POST',
@@ -307,12 +368,16 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
         if (systemState.settings?.spam_cooldown_enabled) {
           setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
         }
-      } else if (res.status === 429) {
-        showToast(data.detail, 'warning');
       } else {
-        showToast(data.detail || t.errorGeneric, 'error');
+        fetchStatus();
+        if (res.status === 429) {
+          showToast(data.detail, 'warning');
+        } else {
+          showToast(data.detail || t.errorGeneric, 'error');
+        }
       }
     } catch {
+      fetchStatus();
       showToast(t.errorNetwork, 'error');
     } finally {
       setIsSubmittingCustom(false);
@@ -923,7 +988,20 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
           
           {/* Window 1: Quick Templates */}
           <RoutineActions
-            onRoutineSpoke={(msg, type) => showToast(msg, type || 'success')}
+            onRoutineSpoke={(msg, type) => {
+              showToast(msg, type || 'success');
+              if (type !== 'error') {
+                if (systemState.settings?.spam_cooldown_enabled) {
+                  setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
+                }
+              }
+            }}
+            onStartSpeaking={() => {
+              setSystemState((prev) => ({
+                ...prev,
+                status: 'speaking'
+              }));
+            }}
             cooldownRemaining={cooldownRemaining}
             isSpeaking={systemState.status === 'speaking'}
           />

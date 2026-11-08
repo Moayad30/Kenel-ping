@@ -18,7 +18,7 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        setIsModalOpen(false);
+        setIsAdding(false);
         setSnippetToDelete(null);
       }
     };

@@ -5,7 +5,7 @@ import {
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import IconPicker, { renderAppIcon } from './IconPicker';
 
-export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, isSpeaking = false }) {
+export default function RoutineActions({ onRoutineSpoke, onStartSpeaking, cooldownRemaining = 0, isSpeaking = false }) {
   const { theme, t } = useThemeLang();
 
   const [routines, setRoutines] = useState([]);
@@ -73,6 +73,7 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, 
   const handleSpeak = async (routine) => {
     if (isSpeaking || cooldownRemaining > 0 || submittingId) return;
     setSubmittingId(routine.id);
+    if (onStartSpeaking) onStartSpeaking();
 
     const val = values[routine.id] !== undefined ? values[routine.id] : routine.default_value || '1';
 

@@ -203,6 +203,31 @@ export default function AdminApp() {
     }
   };
 
+  const fetchAuditData = async (authToken = token) => {
+    if (!authToken) return;
+    try {
+      const aRes = await fetch('/api/admin/audit', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        setAuditData(aData);
+      }
+    } catch {
+      // Ignore background network blips
+    }
+  };
+
+  // Live Audit Polling: auto-refresh statistics and log table every 2s when on the Audit tab
+  useEffect(() => {
+    if (!isAuthenticated || activeTab !== 'audit') return;
+    fetchAuditData(token);
+    const auditPollInterval = setInterval(() => {
+      fetchAuditData(token);
+    }, 2000);
+    return () => clearInterval(auditPollInterval);
+  }, [isAuthenticated, activeTab, token]);
+
   const handleLogout = () => {
     localStorage.removeItem('kernelping_token');
     setToken('');
@@ -295,10 +320,17 @@ export default function AdminApp() {
   // --- Category CRUD Actions ---
   const handleCreateCategory = async (e) => {
     e.preventDefault();
-    if (!categoryForm.id.trim() || !categoryForm.name_ar.trim()) {
+    if (!categoryForm.name_ar.trim()) {
       showToast('Please fill required fields', 'warning');
       return;
     }
+
+    const payload = {
+      ...categoryForm,
+      id: categoryForm.name_en
+        ? categoryForm.name_en.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+        : undefined
+    };
 
     try {
       const res = await fetch('/api/admin/categories', {
@@ -307,7 +339,7 @@ export default function AdminApp() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(categoryForm)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         showToast('Category added successfully', 'success');
@@ -1218,19 +1250,6 @@ export default function AdminApp() {
                   <h3 className="font-bold text-base mb-4">{t.addCategoryModalTitle}</h3>
                   <form onSubmit={handleCreateCategory} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1">Category ID:</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. mobile_dev"
-                        value={categoryForm.id}
-                        onChange={(e) => setCategoryForm({ ...categoryForm, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
-                        className={`w-full border rounded-2xl px-3.5 py-2 text-xs font-mono focus:outline-none ${
-                          theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                        }`}
-                      />
-                    </div>
-                    <div>
                       <label className="block text-xs font-semibold mb-1">Arabic Name:</label>
                       <input
                         type="text"
@@ -1285,7 +1304,7 @@ export default function AdminApp() {
                 <div className={`border rounded-3xl w-full max-w-md p-6 shadow-2xl ${
                   theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 text-slate-900'
                 }`}>
-                  <h3 className="font-bold text-base mb-4">{t.editCategoryModalTitle}: {editingCategory.id}</h3>
+                  <h3 className="font-bold text-base mb-4">{t.editCategoryModalTitle}</h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold mb-1">Arabic Name:</label>

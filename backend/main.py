@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import asyncio
 from pathlib import Path
@@ -484,8 +485,19 @@ async def admin_list_categories(admin: dict = Depends(require_admin)):
 @app.post("/api/admin/categories")
 async def admin_create_category(category: CategoryModel, admin: dict = Depends(require_admin)):
     categories = load_categories()
-    if any(c.id == category.id for c in categories):
-        raise HTTPException(status_code=400, detail="Category ID already exists")
+
+    # Automatically generate slug ID if omitted
+    if not category.id or not category.id.strip():
+        slug = re.sub(r'[^a-zA-Z0-9]+', '_', (category.name_en or "").strip().lower()).strip('_')
+        category.id = slug if slug else f"cat_{uuid.uuid4().hex[:6]}"
+
+    # Ensure uniqueness
+    original_id = category.id
+    counter = 1
+    while any(c.id == category.id for c in categories):
+        category.id = f"{original_id}_{counter}"
+        counter += 1
+
     categories.append(category)
     save_categories(categories)
     return {"success": True, "category": category}
@@ -745,6 +757,13 @@ from fastapi.responses import FileResponse
 frontend_dist = BASE_DIR / "frontend" / "dist"
 if (frontend_dist / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+@app.get("/")
+async def serve_root():
+    index_file = frontend_dist / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"message": "Kernel Ping Backend API Running."}
 
 @app.get("/{full_path:path}")
 async def serve_spa_frontend(full_path: str):

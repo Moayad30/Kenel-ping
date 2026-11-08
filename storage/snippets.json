@@ -1,17 +1,5 @@
 [
   {
-    "id": "snip_locate",
-    "text": "أين جهاز رقم ",
-    "icon": "Search",
-    "order": 1
-  },
-  {
-    "id": "snip_completed",
-    "text": "تم إنجاز الجهاز رقم ",
-    "icon": "CheckCircle2",
-    "order": 2
-  },
-  {
     "id": "snip_pending",
     "text": "يوجد أجهزة قيد الانتظار: ",
     "icon": "Clock",
