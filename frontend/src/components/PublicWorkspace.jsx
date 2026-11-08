@@ -482,27 +482,27 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 )}
               </button>
 
-              {/* Immediate Stop Audio Button (Active whenever audio is speaking) */}
-              {systemState.status === 'speaking' && (
-                systemState.current_item?.source === 'admin_voice' ? (
-                  <div
-                    title={t.stopAudioAdminVoiceProtected}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/90 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-md select-none cursor-not-allowed"
-                  >
-                    <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span>{t.stopAudioAdminVoiceProtected}</span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleStopAudio}
-                    title={t.stopAudioBtn}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 animate-pulse transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                  >
-                    <Square className="w-3.5 h-3.5 fill-current" />
-                    <span>{t.stopAudioBtn}</span>
-                  </button>
-                )
+              {/* Immediate Stop Audio Button (Always visible in member header, protected if admin live voice) */}
+              {systemState.status === 'speaking' && systemState.current_item?.source === 'admin_voice' ? (
+                <div
+                  title={t.stopAudioAdminVoiceProtected}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-md select-none cursor-not-allowed"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{t.stopAudioAdminVoiceProtected}</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStopAudio}
+                  title={t.stopAudioBtn}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+                    systemState.status === 'speaking' ? 'animate-pulse ring-2 ring-rose-400/50' : ''
+                  }`}
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>{t.stopAudioBtn}</span>
+                </button>
               )}
 
 
@@ -730,24 +730,24 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
               )}
             </div>
 
-            {/* Toggle Expand / Collapse Category Pills Button */}
+            {/* Toggle Expand / Collapse Category Pills Button (Arrow only, no text) */}
             <button
               type="button"
               onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+              title={isCategoriesExpanded ? t.collapseCategories : t.expandCategories}
+              className={`p-2 rounded-xl border transition-all flex items-center justify-center ${
                 theme === 'dark'
                   ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:text-white hover:bg-[#1C2A47]'
                   : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-200'
               }`}
             >
-              <span>{isCategoriesExpanded ? t.collapseCategories : t.expandCategories}</span>
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isCategoriesExpanded ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isCategoriesExpanded ? 'rotate-180' : ''}`} />
             </button>
           </div>
 
-          {/* Dynamic Category Filter Pills: Natural Wrap Downwards without Ugly Scrollbars */}
+          {/* Dynamic Category Filter Pills: Folds completely or unfolds smoothly */}
           <div className={`flex flex-wrap items-center gap-2 transition-all duration-300 ${
-            isCategoriesExpanded ? 'max-h-96 opacity-100' : 'max-h-10 overflow-hidden'
+            isCategoriesExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden pointer-events-none'
           }`}>
             {/* All Category */}
             <button
@@ -765,43 +765,42 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
               {t.allCategories} ({presets.length})
             </button>
 
-            {/* Dynamic Categories */}
-            {categories.map((cat) => {
-              const count = presets.filter(p => 
-                p.category_id === cat.id || 
-                p.category === cat.name_ar || 
-                (cat.id === 'uncategorized' && (!p.category_id || p.category_id === 'uncategorized'))
-              ).length;
-              const isSelected = selectedCategory === cat.id;
-              const catName = cat.id === 'uncategorized' 
-                ? t.uncategorized 
-                : (lang === 'en' ? (cat.name_en || cat.name_ar) : (cat.name_ar || cat.name_en));
+            {/* Dynamic Categories (Uncategorized category is hidden from public workspace) */}
+            {categories
+              .filter((cat) => cat.id !== 'uncategorized')
+              .map((cat) => {
+                const count = presets.filter(p => 
+                  p.category_id === cat.id || 
+                  p.category === cat.name_ar
+                ).length;
+                const isSelected = selectedCategory === cat.id;
+                const catName = lang === 'en' ? (cat.name_en || cat.name_ar) : (cat.name_ar || cat.name_en);
 
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                    isSelected
-                      ? theme === 'dark'
-                        ? 'bg-[#00D2FF] text-slate-950 shadow-md shadow-[#00D2FF]/20 font-black'
-                        : 'bg-sky-600 text-white shadow-md shadow-sky-600/20 font-black'
-                      : theme === 'dark'
-                        ? 'bg-[#121C33] text-slate-300 hover:bg-[#1C2A47]'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  <span>{catName}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected 
-                      ? 'bg-black/20 text-slate-950' 
-                      : theme === 'dark' ? 'bg-[#1F3152] text-slate-400' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      isSelected
+                        ? theme === 'dark'
+                          ? 'bg-[#00D2FF] text-slate-950 shadow-md shadow-[#00D2FF]/20 font-black'
+                          : 'bg-sky-600 text-white shadow-md shadow-sky-600/20 font-black'
+                        : theme === 'dark'
+                          ? 'bg-[#121C33] text-slate-300 hover:bg-[#1C2A47]'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>{catName}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isSelected 
+                        ? 'bg-black/20 text-slate-950' 
+                        : theme === 'dark' ? 'bg-[#1F3152] text-slate-400' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         </section>
 
