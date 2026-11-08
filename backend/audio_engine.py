@@ -623,19 +623,18 @@ class AudioEngine:
                 await self.broadcast_state()
 
                 settings = load_settings()
+                chime_timing = getattr(settings, 'chime_timing', 'synchronized')
 
-                # 1. Pre-Announcement Chime
-                if settings.pre_chime_enabled:
+                # Option 1: Instant timing -> chime rings immediately before speech preparation
+                if chime_timing == "instant" and settings.pre_chime_enabled:
                     chime_file = CHIMES_DIR / f"{settings.chime_tone}.mp3"
                     if chime_file.exists():
                         chime_vol = getattr(settings, 'chime_volume', 80)
                         await self.play_audio_file(chime_file, volume=chime_vol)
+                    if settings.bluetooth_wakeup_enabled:
+                        await asyncio.sleep(0.4)
 
-                # 2. Bluetooth Wake-up Ping / Delay
-                if settings.bluetooth_wakeup_enabled:
-                    await asyncio.sleep(0.4)
-
-                # 3. Speech Playback
+                # Prepare speech playback audio
                 preset_id = item.get("preset_id")
                 lang = item.get("language") or detect_language(item["text"])
                 temp_file = None
@@ -653,6 +652,15 @@ class AudioEngine:
                     temp_file = TEMP_DIR / f"{uuid.uuid4().hex}.mp3"
                     await self.generate_tts(item["text"], temp_file)
                     audio_to_play = temp_file
+
+                # Option 2: Synchronized timing (default) -> chime rings only when speech is 100% prepared
+                if chime_timing != "instant" and settings.pre_chime_enabled:
+                    chime_file = CHIMES_DIR / f"{settings.chime_tone}.mp3"
+                    if chime_file.exists():
+                        chime_vol = getattr(settings, 'chime_volume', 80)
+                        await self.play_audio_file(chime_file, volume=chime_vol)
+                    if settings.bluetooth_wakeup_enabled:
+                        await asyncio.sleep(0.4)
 
                 if audio_to_play.exists():
                     await self.play_audio_file(audio_to_play)

@@ -33,6 +33,7 @@ class SettingsModel(BaseModel):
     pre_chime_enabled: bool = True
     chime_tone: str = "airport"  # airport, bell, alert
     chime_volume: int = Field(default=80, ge=0, le=100)
+    chime_timing: str = "synchronized"  # synchronized (generate first then chime+speak) or instant (chime immediately)
     bluetooth_wakeup_enabled: bool = True
     server_volume: int = Field(default=85, ge=0, le=100)
     bluetooth_speaker_mac: Optional[str] = None

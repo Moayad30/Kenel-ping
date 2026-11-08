@@ -72,6 +72,23 @@
 
 ---
 
+### 🔹 الإيقاف الفوري للصوت (Instant Stop Audio)
+- **الرابط:** `POST /api/audio/stop`
+- **الوصف:** قطع الصوت فوراً من مشغل الصوت (`mpv`)، وإلغاء أي عناصر تنتظر دورها في طابور النطق، وإعادة النظام لحالة الجاهزية (`ready`).
+- **قواعد الصلاحية والأمان (Security & Roles):**
+  - إذا كان الصوت قيد التشغيل عبارة عن بث صوتي بشري مباشر من المشرف (`source: admin_voice`)، يُشترط وجود توكن المشرف في الترويسة (`Authorization: Bearer <TOKEN>`).
+  - إذا حاول أي عضو إيقاف البث المباشر للمشرف، يرفض السيرفر الطلب برمز `403 Forbidden` مع توضيح: `"Admin live voice broadcast cannot be stopped by members"`.
+  - لكافة الأصوات الأخرى (الجمل الثابتة، النطق الحر، القوالب الروتينية، نداءات الأجهزة)، يحق لأي عضو أو مشرف إيقاف الصوت فوراً دون قيود.
+- **مثال الاستجابة (200 OK):**
+```json
+{
+  "success": true,
+  "stopped": true
+}
+```
+
+---
+
 ### 🔹 إدارة واستدعاء الإجراءات الروتينية (Routine Actions)
 - `GET /api/routines`: استرجاع كافة القوالب الروتينية والعدادات السريعة.
 - `POST /api/routines`: إضافة قالب روتيني جديد.
@@ -165,7 +182,7 @@
 ---
 
 ### 🔹 تعديل إعدادات النظام وهندسة الصوت
-- **الرابط:** `PUT /api/admin/settings`
+- **الرابط:** `POST /api/admin/settings`
 - **جسم الطلب:**
 ```json
 {
@@ -174,12 +191,16 @@
   "pre_chime_enabled": true,
   "chime_tone": "bell",
   "chime_volume": 75,
+  "chime_timing": "synchronized",
   "bluetooth_wakeup_enabled": true,
   "server_volume": 85,
   "tts_voice_ar": "ar-SA-HamedNeural",
-  "tts_voice_en": "en-US-BrianMultilingualNeural"
+  "tts_voice_en": "en-US-AndrewMultilingualNeural"
 }
 ```
+- **خيارات توقيت النغمة (`chime_timing`):**
+  - `"synchronized"`: متزامن (توليد الصوت أولاً ثم دق النغمة وبدء النطق فوراً بدون صمت).
+  - `"instant"`: فوري (دق النغمة فور وصول الطلب ثم توليد الصوت وبثه).
 
 ---
 

@@ -4,7 +4,8 @@ import {
   PhoneCall, Rocket, CheckCircle2, Snowflake, AlertTriangle, AlertCircle, ServerCrash,
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
-  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap, Square
+  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap, Square,
+  ChevronDown
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import RoutineActions from './RoutineActions';
@@ -42,6 +43,7 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
 
   // Custom Speech Input Box
   const [customText, setCustomText] = useState('');
@@ -141,6 +143,11 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
       const res = await fetch('/api/audio/stop', { method: 'POST' });
       if (res.ok) {
         showToast(t.audioStoppedMsg || 'Audio stopped immediately ⏹️');
+      } else if (res.status === 403) {
+        showToast(t.stopAudioAdminVoiceDenied || 'Admin live voice broadcast cannot be stopped by members', 'error');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || t.errorNetwork, 'error');
       }
     } catch {
       showToast(t.errorNetwork, 'error');
@@ -477,15 +484,25 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
               {/* Immediate Stop Audio Button (Active whenever audio is speaking) */}
               {systemState.status === 'speaking' && (
-                <button
-                  type="button"
-                  onClick={handleStopAudio}
-                  title={t.stopAudioBtn}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 animate-pulse transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                >
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{t.stopAudioBtn}</span>
-                </button>
+                systemState.current_item?.source === 'admin_voice' ? (
+                  <div
+                    title={t.stopAudioAdminVoiceProtected}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/90 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-md select-none cursor-not-allowed"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{t.stopAudioAdminVoiceProtected}</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleStopAudio}
+                    title={t.stopAudioBtn}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 animate-pulse transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    <span>{t.stopAudioBtn}</span>
+                  </button>
+                )
               )}
 
 
@@ -685,35 +702,53 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
         {extraAdminContent}
 
         {/* Search & Dynamic Category Filter Bar */}
-        <section className={`p-4 rounded-3xl border shadow-xl flex flex-col md:flex-row gap-4 justify-between items-center transition-colors duration-200 ${
+        <section className={`p-4 rounded-3xl border shadow-xl flex flex-col gap-3.5 transition-colors duration-200 ${
           theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
         }`}>
-          {/* Instant Search Bar */}
-          <div className="relative w-full md:w-96">
-            <Search className={`w-4 h-4 absolute ${lang === 'ar' ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400`} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t.searchPlaceholder}
-              className={`w-full border rounded-2xl ${lang === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2.5 text-sm transition-all focus:outline-none ${
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-center w-full">
+            {/* Instant Search Bar */}
+            <div className="relative w-full sm:w-96">
+              <Search className={`w-4 h-4 absolute ${lang === 'ar' ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400`} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                className={`w-full border rounded-2xl ${lang === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2.5 text-xs transition-all focus:outline-none ${
+                  theme === 'dark'
+                    ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
+                }`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className={`absolute ${lang === 'ar' ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600`}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Toggle Expand / Collapse Category Pills Button */}
+            <button
+              type="button"
+              onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
                 theme === 'dark'
-                  ? 'bg-[#070C1B] border-[#1F3152] text-white placeholder-slate-500 focus:border-[#00D2FF]'
-                  : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-sky-500'
+                  ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:text-white hover:bg-[#1C2A47]'
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-200'
               }`}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className={`absolute ${lang === 'ar' ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600`}
-              >
-                ✕
-              </button>
-            )}
+            >
+              <span>{isCategoriesExpanded ? t.collapseCategories : t.expandCategories}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isCategoriesExpanded ? 'rotate-180' : ''}`} />
+            </button>
           </div>
 
-          {/* Dynamic Category Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+          {/* Dynamic Category Filter Pills: Natural Wrap Downwards without Ugly Scrollbars */}
+          <div className={`flex flex-wrap items-center gap-2 transition-all duration-300 ${
+            isCategoriesExpanded ? 'max-h-96 opacity-100' : 'max-h-10 overflow-hidden'
+          }`}>
             {/* All Category */}
             <button
               onClick={() => setSelectedCategory('all')}

@@ -271,5 +271,18 @@
     "text_en": "End of shift: volunteers please shut down workstations, disconnect power strips, and lock all doors securely.",
     "icon": "Lock",
     "color": "red"
+  },
+  {
+    "id": "يب",
+    "category_id": "uncategorized",
+    "category": "Uncategorized",
+    "title": "يس",
+    "title_ar": "يس",
+    "title_en": "يس",
+    "text": "بلا",
+    "text_ar": "بلا",
+    "text_en": "بلا",
+    "icon": "Volume2",
+    "color": "cyan"
   }
 ]

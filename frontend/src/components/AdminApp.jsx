@@ -85,9 +85,13 @@ export default function AdminApp() {
 
   const handleStopAudio = async () => {
     try {
-      const res = await fetch('/api/audio/stop', { method: 'POST' });
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch('/api/audio/stop', { method: 'POST', headers });
       if (res.ok) {
         showToast(t.audioStoppedMsg || 'Audio stopped immediately ⏹️');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.detail || t.errorNetwork, 'error');
       }
     } catch {
       showToast(t.errorNetwork, 'error');
@@ -1051,6 +1055,66 @@ export default function AdminApp() {
                 </div>
               )}
 
+              {/* Chime Timing Mode */}
+              <div className={`p-4 rounded-2xl border space-y-3 ${
+                theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div>
+                  <h4 className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    {t.chimeTimingLabel}
+                  </h4>
+                  <p className={`text-[11px] mt-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t.chimeTimingDesc}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => updateSetting('chime_timing', 'synchronized')}
+                    className={`p-3.5 rounded-xl border text-right transition-all flex flex-col gap-1.5 ${
+                      (settings.chime_timing || 'synchronized') === 'synchronized'
+                        ? theme === 'dark'
+                          ? 'bg-[#00D2FF]/10 border-[#00D2FF] text-white shadow-sm ring-1 ring-[#00D2FF]/50'
+                          : 'bg-sky-50 border-sky-500 text-sky-950 shadow-sm ring-1 ring-sky-500/50'
+                        : theme === 'dark'
+                          ? 'bg-[#0E1726] border-[#1F3152] text-slate-400 hover:border-slate-600'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">{t.chimeTimingSyncTitle}</span>
+                      {(settings.chime_timing || 'synchronized') === 'synchronized' && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#00D2FF] shadow-[0_0_8px_#00D2FF]" />
+                      )}
+                    </div>
+                    <span className="text-[11px] opacity-80 leading-relaxed">{t.chimeTimingSync}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateSetting('chime_timing', 'instant')}
+                    className={`p-3.5 rounded-xl border text-right transition-all flex flex-col gap-1.5 ${
+                      settings.chime_timing === 'instant'
+                        ? theme === 'dark'
+                          ? 'bg-[#00D2FF]/10 border-[#00D2FF] text-white shadow-sm ring-1 ring-[#00D2FF]/50'
+                          : 'bg-sky-50 border-sky-500 text-sky-950 shadow-sm ring-1 ring-sky-500/50'
+                        : theme === 'dark'
+                          ? 'bg-[#0E1726] border-[#1F3152] text-slate-400 hover:border-slate-600'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">{t.chimeTimingInstantTitle}</span>
+                      {settings.chime_timing === 'instant' && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#00D2FF] shadow-[0_0_8px_#00D2FF]" />
+                      )}
+                    </div>
+                    <span className="text-[11px] opacity-80 leading-relaxed">{t.chimeTimingInstant}</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Bluetooth Wake-up Ping */}
               <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${
                 theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
@@ -1147,7 +1211,6 @@ export default function AdminApp() {
                     theme === 'dark' ? 'bg-[#121C33] text-slate-300 border-[#1F3152]' : 'bg-slate-50 text-slate-700 border-slate-200'
                   }`}>
                     <tr>
-                      <th className="py-3.5 px-4">{t.catIdCol}</th>
                       <th className="py-3.5 px-4">{t.catNameArCol}</th>
                       <th className="py-3.5 px-4">{t.catNameEnCol}</th>
                       <th className="py-3.5 px-4">{t.catIconCol}</th>
@@ -1165,11 +1228,28 @@ export default function AdminApp() {
                       ).length;
                       return (
                         <tr key={cat.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-[#121C33]/50' : 'hover:bg-slate-50'}`}>
-                          <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{cat.id}</td>
                           <td className="py-3.5 px-4 font-bold">{cat.name_ar}</td>
                           <td className="py-3.5 px-4 font-medium">{cat.name_en}</td>
-                          <td className="py-3.5 px-4 font-mono text-[11px]">{cat.icon}</td>
-                          <td className="py-3.5 px-4 font-mono text-[11px]">{cat.color}</td>
+                          <td className="py-3.5 px-4">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                              {renderAppIcon(cat.icon, { className: 'w-4 h-4 text-cyan-400' })}
+                              <span className="font-mono text-[11px] text-slate-300">{cat.icon}</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                              <span className={`w-3 h-3 rounded-full shadow-sm ${
+                                cat.color === 'cyan' ? 'bg-cyan-400 shadow-cyan-400/50' :
+                                cat.color === 'emerald' ? 'bg-emerald-400 shadow-emerald-400/50' :
+                                cat.color === 'amber' ? 'bg-amber-400 shadow-amber-400/50' :
+                                cat.color === 'rose' ? 'bg-rose-400 shadow-rose-400/50' :
+                                cat.color === 'blue' ? 'bg-blue-400 shadow-blue-400/50' :
+                                cat.color === 'purple' ? 'bg-purple-400 shadow-purple-400/50' :
+                                'bg-slate-400'
+                              }`} />
+                              <span className="font-mono text-[11px] text-slate-300">{cat.color}</span>
+                            </div>
+                          </td>
                           <td className="py-3.5 px-4">
                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                               theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-700'
@@ -1892,12 +1972,6 @@ function AdminLogin({ onLoginSuccess }) {
             <span>{loading ? t.loginChecking : t.loginButton}</span>
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-[11px] text-slate-400 font-mono">
-            {t.defaultCredentialsNotice}
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -4,8 +4,9 @@ import asyncio
 from pathlib import Path
 from typing import Optional, List
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Request, Query, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Request, Query, UploadFile, File, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
 from backend.config import (
@@ -14,9 +15,10 @@ from backend.config import (
     load_categories, save_categories, CategoryModel,
     load_routines, save_routines, RoutineModel,
     load_snippets, save_snippets, SnippetModel,
-    load_audit, save_audit, PRESETS_DIR, CHIMES_DIR, TEMP_DIR, BASE_DIR
+    load_audit, save_audit, PRESETS_DIR, CHIMES_DIR, TEMP_DIR, BASE_DIR,
+    ADMIN_USERNAME
 )
-from backend.auth import authenticate_admin, create_access_token, require_admin
+from backend.auth import authenticate_admin, create_access_token, require_admin, decode_access_token, security_scheme
 from backend.audio_engine import (
     audio_engine, detect_language, get_audio_device_info,
     reconnect_bluetooth_speaker, get_paired_bluetooth_devices
@@ -129,8 +131,25 @@ async def set_public_volume(payload: VolumeRequest):
     return {"success": True, "volume": vol}
 
 @app.post("/api/audio/stop")
-async def stop_audio_playback():
-    """Immediately stops all current and queued audio playback."""
+async def stop_audio_playback(credentials: Optional[HTTPAuthorizationCredentials] = Security(security_scheme)):
+    """
+    Immediately stops all current and queued audio playback.
+    Protected rule: If the current broadcast is live admin microphone (admin_voice),
+    members cannot stop it; only authenticated admin can stop it.
+    """
+    current = audio_engine.current_item
+    if current and current.get("source") == "admin_voice":
+        is_admin = False
+        if credentials and credentials.credentials:
+            payload = decode_access_token(credentials.credentials)
+            if payload and payload.get("sub") == ADMIN_USERNAME:
+                is_admin = True
+        if not is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin live voice broadcast cannot be stopped by members"
+            )
+
     result = await audio_engine.stop_playback()
     return result
 
