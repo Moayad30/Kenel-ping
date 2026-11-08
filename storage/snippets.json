@@ -2,49 +2,43 @@
   {
     "id": "snip_locate",
     "text": "أين جهاز رقم ",
-    "icon": "Tag",
+    "icon": "Search",
     "order": 1
   },
   {
+    "id": "snip_completed",
+    "text": "تم إنجاز الجهاز رقم ",
+    "icon": "CheckCircle2",
+    "order": 2
+  },
+  {
     "id": "snip_pending",
-    "text": "يوجد أجهزة لم تبدأ: ",
-    "icon": "Tag",
+    "text": "يوجد أجهزة قيد الانتظار: ",
+    "icon": "Clock",
     "order": 3
   },
   {
     "id": "snip_go_to",
-    "text": "يرجى التوجه إلى ",
-    "icon": "Tag",
+    "text": "يرجى التوجه إلى قسم الاستقبال ",
+    "icon": "ArrowRight",
     "order": 4
   },
   {
     "id": "snip_reminder",
     "text": "تذكير: ",
-    "icon": "Tag",
+    "icon": "Bell",
     "order": 5
   },
   {
     "id": "snip_urgent",
     "text": "عاجل جداً: ",
-    "icon": "Tag",
+    "icon": "AlertTriangle",
     "order": 6
   },
   {
     "id": "snip_meeting",
-    "text": "اجتماع فوري في قاعة التنسيق ",
-    "icon": "Tag",
-    "order": 7
-  },
-  {
-    "id": "snip_1794134611514",
-    "text": "نريد أن نشتري شيء من المكتب ، هل يريد أحد ان نشتري له؟",
-    "icon": "Tag",
-    "order": 8
-  },
-  {
-    "id": "snip_1794138218709",
-    "text": "يسي",
+    "text": "اجتماع فوري لفريق الصيانة ",
     "icon": "Users",
-    "order": 9
+    "order": 7
   }
 ]

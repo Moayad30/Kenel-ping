@@ -128,6 +128,12 @@ async def set_public_volume(payload: VolumeRequest):
     vol = await audio_engine.set_volume(payload.volume)
     return {"success": True, "volume": vol}
 
+@app.post("/api/audio/stop")
+async def stop_audio_playback():
+    """Immediately stops all current and queued audio playback."""
+    result = await audio_engine.stop_playback()
+    return result
+
 @app.post("/api/speak/preset/{preset_id}")
 async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Query(default=None)):
     """Triggers playback of a predefined announcement preset."""

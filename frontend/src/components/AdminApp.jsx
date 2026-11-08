@@ -4,7 +4,7 @@ import {
   History, Volume2, Bell, Radio, Check, AlertCircle, RefreshCw,
   Plus, Trash2, Edit2, Play, VolumeX, Sparkles, ExternalLink, Activity,
   Sun, Moon, Globe, Folder, FolderPlus, Tag, Layers, Mic, AlertTriangle,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, Square
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import AdminVoiceRecorder from './AdminVoiceRecorder';
@@ -27,8 +27,8 @@ export default function AdminApp() {
     chime_volume: 80,
     bluetooth_wakeup_enabled: true,
     server_volume: 85,
-    tts_voice_ar: 'ar-SY-LaithNeural',
-    tts_voice_en: 'en-US-AriaNeural'
+    tts_voice_ar: 'ar-SA-HamedNeural',
+    tts_voice_en: 'en-US-AndrewMultilingualNeural'
   });
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -81,6 +81,17 @@ export default function AdminApp() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleStopAudio = async () => {
+    try {
+      const res = await fetch('/api/audio/stop', { method: 'POST' });
+      if (res.ok) {
+        showToast(t.audioStoppedMsg || 'Audio stopped immediately ⏹️');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    }
   };
 
   // Close modals on Escape key press
@@ -681,6 +692,16 @@ export default function AdminApp() {
           </div>
 
           <div className="flex items-center gap-2.5">
+            {/* Immediate Stop Audio Button */}
+            <button
+              onClick={handleStopAudio}
+              title={t.stopAudioBtn}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>{t.stopAudioBtn}</span>
+            </button>
+
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
@@ -1369,7 +1390,6 @@ export default function AdminApp() {
                   }`}>
                     <tr>
                       <th className="py-3.5 px-3 text-center w-12">{t.presetNumCol}</th>
-                      <th className="py-3.5 px-3 text-center w-20">{t.presetOrderCol}</th>
                       <th className="py-3.5 px-4">{t.presetIdCol}</th>
                       <th className="py-3.5 px-4">{t.presetTitleCol}</th>
                       <th className="py-3.5 px-4">{t.presetCategoryCol}</th>
@@ -1383,36 +1403,13 @@ export default function AdminApp() {
                       const title = preset.title || preset.title_ar || preset.title_en || preset.id;
                       const text = preset.text || preset.text_ar || preset.text_en || '';
                       const isUncat = !preset.category_id || preset.category_id === 'uncategorized';
+                      const isArabic = /[\u0600-\u06FF]/.test(text);
 
                       return (
                         <tr key={preset.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-[#121C33]/50' : 'hover:bg-slate-50'}`}>
                           {/* Numbering */}
                           <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-400">
                             {index + 1}
-                          </td>
-
-                          {/* Reordering */}
-                          <td className="py-3.5 px-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleMovePreset(index, -1)}
-                                disabled={index === 0}
-                                title={t.moveUpBtn}
-                                className="p-1 rounded-lg border border-slate-700/40 hover:bg-slate-700/50 text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-                              >
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleMovePreset(index, 1)}
-                                disabled={index === presets.length - 1}
-                                title={t.moveDownBtn}
-                                className="p-1 rounded-lg border border-slate-700/40 hover:bg-slate-700/50 text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
                           </td>
 
                           <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{preset.id}</td>
@@ -1428,8 +1425,9 @@ export default function AdminApp() {
                           </td>
                           <td className="py-3.5 px-4 max-w-sm truncate text-slate-400">"{text}"</td>
                           <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                              Ready
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span>{isArabic ? t.cacheArLabel : t.cacheEnLabel}</span>
                             </span>
                           </td>
                           <td className="py-3.5 px-4">

@@ -4,7 +4,7 @@ import {
   PhoneCall, Rocket, CheckCircle2, Snowflake, AlertTriangle, AlertCircle, ServerCrash,
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
-  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap
+  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap, Square
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import RoutineActions from './RoutineActions';
@@ -134,6 +134,17 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleStopAudio = async () => {
+    try {
+      const res = await fetch('/api/audio/stop', { method: 'POST' });
+      if (res.ok) {
+        showToast(t.audioStoppedMsg || 'Audio stopped immediately ⏹️');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    }
   };
 
   const fetchCategories = async () => {
@@ -463,6 +474,19 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                   </>
                 )}
               </button>
+
+              {/* Immediate Stop Audio Button (Active whenever audio is speaking) */}
+              {systemState.status === 'speaking' && (
+                <button
+                  type="button"
+                  onClick={handleStopAudio}
+                  title={t.stopAudioBtn}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 animate-pulse transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>{t.stopAudioBtn}</span>
+                </button>
+              )}
 
 
               {/* Clickable Member Volume Badge */}

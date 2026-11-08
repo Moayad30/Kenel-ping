@@ -427,6 +427,46 @@ class AudioEngine:
         finally:
             self._current_process = None
 
+    async def stop_playback(self) -> dict:
+        """
+        Immediately halts any active audio playback process (mpv),
+        clears pending items in queue, resets system state to 'ready', and broadcasts update.
+        """
+        stopped = False
+        if self._current_process:
+            try:
+                self._current_process.kill()
+                stopped = True
+            except Exception as e:
+                print(f"Error terminating audio process: {e}")
+            finally:
+                self._current_process = None
+
+        # Terminate any stray mpv playback processes if still active
+        try:
+            kill_proc = await asyncio.create_subprocess_exec(
+                "pkill", "-9", "-f", "mpv",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL
+            )
+            await kill_proc.wait()
+        except Exception:
+            pass
+
+        # Clear remaining queue items
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+                self.queue.task_done()
+            except Exception:
+                break
+
+        self.status = "ready"
+        self.current_item = None
+        self.last_enqueued_time = 0
+        await self.broadcast_state()
+        return {"success": True, "stopped": stopped}
+
     def select_voice_for_text(self, text: str, requested_voice: Optional[str] = None) -> tuple[str, str]:
         """Returns (voice_name, language_code)."""
         settings = load_settings()
@@ -436,9 +476,9 @@ class AudioEngine:
             return requested_voice, lang
 
         if lang == 'en':
-            voice = settings.tts_voice_en or "en-US-AriaNeural"
+            voice = settings.tts_voice_en or "en-US-AndrewMultilingualNeural"
         else:
-            voice = settings.tts_voice_ar or "ar-SY-LaithNeural"
+            voice = settings.tts_voice_ar or "ar-SA-HamedNeural"
         return voice, lang
 
     async def generate_tts(self, text: str, output_path: Path, voice: Optional[str] = None):

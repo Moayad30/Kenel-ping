@@ -37,8 +37,8 @@ class SettingsModel(BaseModel):
     server_volume: int = Field(default=85, ge=0, le=100)
     bluetooth_speaker_mac: Optional[str] = None
     bluetooth_speaker_name: Optional[str] = None
-    tts_voice_ar: str = "ar-SY-LaithNeural"
-    tts_voice_en: str = "en-US-AriaNeural"
+    tts_voice_ar: str = "ar-SA-HamedNeural"
+    tts_voice_en: str = "en-US-AndrewMultilingualNeural"
     speech_rate: str = "+0%"
     speech_pitch: str = "+0Hz"
     smart_pronunciation_enabled: bool = False

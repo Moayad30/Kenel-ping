@@ -9,6 +9,8 @@ export const translations = {
     statusDeviceReady: "صوت الجهاز جاهز",
     statusSpeaking: "قيد النطق الآن بالمكتب",
     statusQueued: "في الطابور",
+    stopAudioBtn: "إيقاف الصوت فوراً",
+    audioStoppedMsg: "تم إيقاف تشغيل الصوت فوراً ⏹️",
     volume: "مستوى الصوت",
     cooldownNotice: "مهلة التكرار",
     themeToggle: "تبديل المظهر",
@@ -296,6 +298,8 @@ export const translations = {
     statusDeviceReady: "Device Audio Ready",
     statusSpeaking: "Broadcasting Now",
     statusQueued: "In Queue",
+    stopAudioBtn: "Stop Audio Now",
+    audioStoppedMsg: "Audio playback stopped immediately ⏹️",
     volume: "Volume",
     cooldownNotice: "Cooldown",
     themeToggle: "Toggle Theme",
@@ -378,7 +382,7 @@ export const translations = {
 
     // Admin Common
     adminTitle: "Kernel Ping Center",
-    adminSubtitle: "Audio Engine, Presets CRUD & Security Audit",
+    adminSubtitle: "Management, Audio Engineering & Internal Systems Control Center",
     adminBadge: "Encrypted Control Center",
     backToPublic: "Public Workspace",
     logout: "Log Out",

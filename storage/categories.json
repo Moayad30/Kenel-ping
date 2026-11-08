@@ -1,27 +1,43 @@
 [
   {
-    "id": "devops",
-    "name_ar": "ديف أوبس وبنية تحتية",
-    "name_en": "DevOps & Infra",
-    "icon": "Rocket",
-    "color": "emerald",
+    "id": "receiving",
+    "name_ar": "استقبال واستلام الأجهزة",
+    "name_en": "Device Intake & Reception",
+    "icon": "Laptop",
+    "color": "cyan",
+    "order": 1
+  },
+  {
+    "id": "maintenance",
+    "name_ar": "الصيانة والمعالجة الفنية",
+    "name_en": "Technical Maintenance & Repair",
+    "icon": "Wrench",
+    "color": "amber",
     "order": 2
   },
   {
-    "id": "office",
-    "name_ar": "ضيافة وحياة المكتب",
-    "name_en": "Office & Life",
-    "icon": "Coffee",
-    "color": "amber",
+    "id": "delivery",
+    "name_ar": "تسليم الأجهزة والجاهزية",
+    "name_en": "Ready Devices & Pickup",
+    "icon": "CheckCircle2",
+    "color": "emerald",
     "order": 3
   },
   {
-    "id": "alerts",
-    "name_ar": "طوارئ وتنبيهات أمنية",
-    "name_en": "Alerts & Security",
-    "icon": "ShieldAlert",
-    "color": "rose",
+    "id": "team",
+    "name_ar": "تنسيق الفريق التطوعي",
+    "name_en": "Volunteer Team Coordination",
+    "icon": "Users",
+    "color": "blue",
     "order": 4
+  },
+  {
+    "id": "alerts",
+    "name_ar": "تنبيهات عامة ومفقودات",
+    "name_en": "Alerts & Lost Items",
+    "icon": "Bell",
+    "color": "rose",
+    "order": 5
   },
   {
     "id": "uncategorized",

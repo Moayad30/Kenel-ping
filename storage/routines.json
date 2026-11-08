@@ -1,20 +1,47 @@
 [
   {
+    "id": "routine_locate_device",
+    "title": "أين هو جهاز رقم X",
+    "template": "أين هو جهاز الطالب رقم {num}؟",
+    "default_value": "1",
+    "icon": "Search",
+    "color": "cyan",
+    "order": 1
+  },
+  {
     "id": "routine_completed_count",
-    "title": "Completed Devices / إنجاز أجهزة",
-    "template": "sddيييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييي سيبسيبي            يييتم إنجاز {num} جهاز إلى الآن{num}  نعم",
-    "default_value": "70",
+    "title": "إنجاز الأجهزة اليوم",
+    "template": "تم إنجاز صيانة {num} جهاز إلى الآن.",
+    "default_value": "15",
     "icon": "CheckCircle2",
     "color": "emerald",
     "order": 2
   },
   {
-    "id": "routine_1794133987371",
-    "title": "انجاز",
-    "template": "تم معالجة {num} جهاز إلى اليوم  ، كيرنال تك مركز الإنجاز!",
-    "default_value": "60",
-    "icon": "CheckCircle2",
-    "color": "emerald",
-    "order": 6
+    "id": "routine_pending_count",
+    "title": "أجهزة متبقية قيد الانتظار",
+    "template": "يوجد {num} أجهزة قيد الصيانة لم يتم البدء بها بعد.",
+    "default_value": "5",
+    "icon": "Clock",
+    "color": "amber",
+    "order": 3
+  },
+  {
+    "id": "routine_deliver_device",
+    "title": "تسليم جهاز رقم X",
+    "template": "يرجى تسليم جهاز الطالب رقم {num} لقسم الاستلام.",
+    "default_value": "1",
+    "icon": "Laptop",
+    "color": "blue",
+    "order": 4
+  },
+  {
+    "id": "routine_call_ticket",
+    "title": "نداء صاحب وصل رقم X",
+    "template": "طالب صاحب وصل رقم {num} يرجى التوجه لمكتب الاستقبال.",
+    "default_value": "1",
+    "icon": "Volume2",
+    "color": "violet",
+    "order": 5
   }
 ]
