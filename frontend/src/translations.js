@@ -1,7 +1,7 @@
 export const translations = {
   ar: {
     // Header & Audio Status
-    appName: "Kernel Ping",
+    appName: "Kernel Ping Center",
     appSubtitle: "نظام النداء والإذاعة الصوتي لمكتب كيرنال تك",
     badgeLabel: "كيرنال بينغ",
     statusReady: "صوت الجهاز جاهز",
@@ -85,7 +85,7 @@ export const translations = {
     footerText: "نظام Kernel Ping © 2026 - بيئة الاتصال الصوتي الداخلي لمكتب كيرنال تك",
 
     // Admin Common
-    adminTitle: "لوحة تحكم كيرنال بينغ",
+    adminTitle: "Kernel Ping Center",
     adminSubtitle: "مركز الإدارة والتحكم بهندسة الصوت والأنظمة الداخلية",
     adminBadge: "لوحة تحكم مشفرة",
     backToPublic: "الواجهة العامة",
@@ -210,12 +210,62 @@ export const translations = {
     loginButton: "تسجيل الدخول للوحة التحكم",
     loginChecking: "جاري التحقق...",
     defaultCredentialsNotice: "بيانات الاعتماد الافتراضية: admin / kernel2026",
-    loginError: "اسم المستخدم أو كلمة المرور غير صحيحة"
+    loginError: "اسم المستخدم أو كلمة المرور غير صحيحة",
+
+    // Image 1: Permissions & Preview Output
+    requestMicAgainBtn: "إعادة طلب صلاحية الميكروفون",
+    micPermissionHint: "انقر لإعادة طلب إذن الوصول إلى الميكروفون من المتصفح",
+    previewDestinationTitle: "وجهة الاستماع للمعاينة:",
+    previewLocalDevice: "سماعات جهازي (محلياً - الوضع الافتراضي)",
+    previewLocalDeviceDesc: "يتم تشغيل المعاينة عبر متصفح جهازك لضمان عدم إزعاج المكتب حتى تتأكد من وضوح الصوت.",
+    previewServerSpeaker: "تجربة على البفلة (عبر السيرفر)",
+    previewServerSpeakerBtn: "تجربة على البفلة",
+    testingOnSpeaker: "جاري التجربة على البفلة...",
+    voiceTestPlayed: "تم تشغيل عينة المعاينة على البفلة بنجاح 🔊",
+
+    // Image 4: Crystal clear sound card & Remote Bluetooth
+    speakerConnected: "البفلة متصلة وجاهزة",
+    speakerDisconnected: "كرت صوت الجهاز (البفلة مفصولة)",
+    speakerNoticeInternal: "الصوت يخرج حالياً من كرت الصوت المدمج بالجهاز لأن البفلة الخارجية غير متصلة.",
+    reconnectSpeakerBtn: "اتصال بالبفلة",
+    reconnectSpeakerTitle: "إعادة الاتصال بالبفلة عن بعد",
+    reconnectSpeakerDesc: "إعادة الاتصال بالبفلة عن بعد دون الحاجة للوصول الفيزيائي إلى جهاز السيرفر",
+    reconnectingSpeaker: "جاري الاتصال بالبفلة...",
+    reconnectSuccess: "تم الاتصال بالبفلة بنجاح!",
+    reconnectFailed: "تعذر الاتصال بالبفلة. تأكد من تشغيلها.",
+
+    // Routines & Quick Device Actions
+    routinesTitle: "نداءات الأجهزة والروتين السريعة",
+    routinesSubtitle: "قوالب سريعة للأرقام والمهام المتكررة بنقرة واحدة",
+    routineNumberPlaceholder: "الرقم",
+    speakRoutineBtn: "نطق النداء الآن",
+    addRoutineBtn: "إضافة قالب روتيني",
+    editRoutineBtn: "تعديل",
+    deleteRoutineBtn: "حذف",
+    routineModalTitle: "إضافة / تعديل نداء روتيني",
+    routineTemplateLabel: "نص النداء (استخدم {num} لمكان الرقم):",
+    routineTitleLabel: "عنوان القالب:",
+    routineDefaultValueLabel: "القيمة الافتراضية للرقم:",
+    saveRoutineBtn: "حفظ القالب",
+    liveSpeechPreview: "النص المنطوق الحي:",
+    routineTitlePlaceholder: "مثال: فحص جهاز رقم",
+    routineHelpNum: "استخدم الرمز {num} ليكون مكان الرقم المتغير الذي تختاره قبل النطق.",
+
+    // Quick Snippets / Suggestions for Free Speech
+    snippetsTitle: "اقتراحات سريعة:",
+    addSnippetBtn: "+ إضافة اقتراح",
+    snippetModalTitle: "إضافة اقتراح سريع جديد",
+    snippetTextLabel: "نص الاقتراح:",
+    snippetPlaceholder: "اكتب النص أو الكلمة المقترحة...",
+    saveSnippetBtn: "حفظ الاقتراح",
+    deleteSnippetBtn: "حذف",
+    deleteSnippetConfirm: "هل أنت متأكد من رغبتك في حذف هذا العنصر؟",
+
   },
 
   en: {
     // Header & Audio Status
-    appName: "Kernel Ping",
+    appName: "Kernel Ping Center",
     appSubtitle: "Office Public Address & Voice Broadcast System",
     badgeLabel: "PA System",
     statusReady: "Device Audio Ready",
@@ -299,7 +349,7 @@ export const translations = {
     footerText: "Kernel Ping System © 2026 — Internal Audio Communication for Kernel Tech",
 
     // Admin Common
-    adminTitle: "Kernel Ping Operations Center",
+    adminTitle: "Kernel Ping Center",
     adminSubtitle: "Audio Engine, Presets CRUD & Security Audit",
     adminBadge: "Encrypted Control Center",
     backToPublic: "Public Workspace",
@@ -424,6 +474,56 @@ export const translations = {
     loginButton: "Authenticate & Enter",
     loginChecking: "Verifying...",
     defaultCredentialsNotice: "Default credentials: admin / kernel2026",
-    loginError: "Invalid username or password"
+    loginError: "Invalid username or password",
+
+    // Image 1: Permissions & Preview Output
+    requestMicAgainBtn: "Request Microphone Permission Again",
+    micPermissionHint: "Click to prompt browser for microphone access again",
+    previewDestinationTitle: "Preview Audio Destination:",
+    previewLocalDevice: "My Local Device Speakers (Default)",
+    previewLocalDeviceDesc: "Preview is played through your browser to avoid disturbing the office before you verify the audio.",
+    previewServerSpeaker: "Test on Office Speaker (via Server)",
+    previewServerSpeakerBtn: "Test on Speaker",
+    testingOnSpeaker: "Testing on speaker...",
+    voiceTestPlayed: "Preview sample played on speaker successfully 🔊",
+
+    // Image 4: Crystal clear sound card & Remote Bluetooth
+    speakerConnected: "Speaker Connected & Ready",
+    speakerDisconnected: "Internal Device Sound (Speaker Disconnected)",
+    speakerNoticeInternal: "Audio currently plays through the internal computer sound card because external speaker is disconnected.",
+    reconnectSpeakerBtn: "Connect Speaker",
+    reconnectSpeakerTitle: "Remote Speaker Reconnection",
+    reconnectSpeakerDesc: "Reconnect to Bluetooth speaker remotely without physical access to the server",
+    reconnectingSpeaker: "Connecting to speaker...",
+    reconnectSuccess: "Connected to speaker successfully!",
+    reconnectFailed: "Could not connect to speaker. Please ensure it is powered on.",
+
+    // Routines & Quick Device Actions
+    routinesTitle: "Quick Device Actions & Routine Templates",
+    routinesSubtitle: "One-click dynamic counter and device announcement templates",
+    routineNumberPlaceholder: "Number",
+    speakRoutineBtn: "Broadcast Now",
+    addRoutineBtn: "Add Routine Template",
+    editRoutineBtn: "Edit",
+    deleteRoutineBtn: "Delete",
+    routineModalTitle: "Add / Edit Routine Announcement",
+    routineTemplateLabel: "Template Text (Use {num} for number placeholder):",
+    routineTitleLabel: "Template Title:",
+    routineDefaultValueLabel: "Default Number Value:",
+    saveRoutineBtn: "Save Template",
+    liveSpeechPreview: "Live Spoken Text Preview:",
+    routineTitlePlaceholder: "e.g. Inspect Device #",
+    routineHelpNum: "Use {num} as a placeholder for the variable number chosen before broadcasting.",
+
+    // Quick Snippets / Suggestions for Free Speech
+    snippetsTitle: "Quick Suggestions:",
+    addSnippetBtn: "+ Add Snippet",
+    snippetModalTitle: "Add New Quick Snippet",
+    snippetTextLabel: "Snippet Text:",
+    snippetPlaceholder: "Enter snippet word or phrase...",
+    saveSnippetBtn: "Save Snippet",
+    deleteSnippetBtn: "Delete",
+    deleteSnippetConfirm: "Are you sure you want to delete this item?",
+
   }
 };

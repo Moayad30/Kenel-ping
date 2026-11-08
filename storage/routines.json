@@ -1,0 +1,47 @@
+[
+  {
+    "id": "routine_locate_device",
+    "title": "Locate Device / مكان جهاز",
+    "template": "أين هو جهاز رقم {num}؟",
+    "default_value": "1",
+    "icon": "Search",
+    "color": "cyan",
+    "order": 1
+  },
+  {
+    "id": "routine_completed_count",
+    "title": "Completed Devices / إنجاز أجهزة",
+    "template": "تم إنجاز {num} جهاز إلى الآن{num}  نعم",
+    "default_value": "70",
+    "icon": "CheckCircle2",
+    "color": "emerald",
+    "order": 2
+  },
+  {
+    "id": "routine_pending_count",
+    "title": "Pending Devices / أجهزة متبقية",
+    "template": "يوجد {num} أجهزة لم يتم البدء بها بعد.",
+    "default_value": "10",
+    "icon": "Clock",
+    "color": "amber",
+    "order": 3
+  },
+  {
+    "id": "routine_1794133913425",
+    "title": "صباح الخير",
+    "template": "Completed {num} devices so far.",
+    "default_value": "10",
+    "icon": "CheckCircle2",
+    "color": "emerald",
+    "order": 5
+  },
+  {
+    "id": "routine_1794133987371",
+    "title": "انجاز",
+    "template": "تم معالجة {num} جهاز إلى اليوم  ، كيرنال تك مركز الإنجاز!",
+    "default_value": "60",
+    "icon": "CheckCircle2",
+    "color": "emerald",
+    "order": 6
+  }
+]

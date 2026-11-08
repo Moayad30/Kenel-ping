@@ -1,0 +1,42 @@
+[
+  {
+    "id": "snip_locate",
+    "text": "أين جهاز رقم ",
+    "order": 1
+  },
+  {
+    "id": "snip_completed",
+    "text": "تم إنجاز ",
+    "order": 2
+  },
+  {
+    "id": "snip_pending",
+    "text": "يوجد أجهزة لم تبدأ: ",
+    "order": 3
+  },
+  {
+    "id": "snip_go_to",
+    "text": "يرجى التوجه إلى ",
+    "order": 4
+  },
+  {
+    "id": "snip_reminder",
+    "text": "تذكير: ",
+    "order": 5
+  },
+  {
+    "id": "snip_urgent",
+    "text": "عاجل جداً: ",
+    "order": 6
+  },
+  {
+    "id": "snip_meeting",
+    "text": "اجتماع فوري في قاعة التنسيق ",
+    "order": 7
+  },
+  {
+    "id": "snip_1794134611514",
+    "text": "نريد أن نشتري شيء من المكتب ، هل يريد أحد ان نشتري له؟",
+    "order": 8
+  }
+]

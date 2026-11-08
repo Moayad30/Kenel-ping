@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic, Square, Play, Pause, RotateCcw, Send, Radio, ShieldCheck,
-  AlertCircle, Volume2, Loader2, CheckCircle2
+  AlertCircle, Volume2, Loader2, CheckCircle2, Headphones, Speaker
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 
@@ -15,6 +15,8 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [isTestingOnSpeaker, setIsTestingOnSpeaker] = useState(false);
+  const [previewSuccessMessage, setPreviewSuccessMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
   const mediaRecorderRef = useRef(null);
@@ -201,6 +203,39 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     }
   };
 
+  // Optional: test voice on office speaker before final broadcast
+  const handleTestOnSpeaker = async () => {
+    if (!audioBlob) return;
+    setIsTestingOnSpeaker(true);
+    setErrorMessage(null);
+    setPreviewSuccessMessage(null);
+
+    const formData = new FormData();
+    const ext = audioBlob.type.includes('ogg') ? 'ogg' : audioBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    formData.append('file', audioBlob, `test_voice_${Date.now()}.${ext}`);
+
+    try {
+      const res = await fetch('/api/admin/test-voice-recording', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+      if (res.ok) {
+        setPreviewSuccessMessage(t.voiceTestPlayed);
+        setTimeout(() => setPreviewSuccessMessage(null), 4000);
+      } else {
+        const data = await res.json();
+        setErrorMessage(data.detail || t.errorGeneric);
+      }
+    } catch {
+      setErrorMessage(t.errorNetwork);
+    } finally {
+      setIsTestingOnSpeaker(false);
+    }
+  };
+
   // Broadcast recorded voice to speaker with zero retention
   const handleBroadcastVoice = async () => {
     if (!audioBlob) return;
@@ -274,11 +309,32 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         </div>
       </div>
 
-      {/* Error Message Alert */}
+      {/* Error Message Alert with Retry Permission Button (Image 1 fix) */}
       {errorMessage && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-rose-500/10">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <div>
+              <p className="font-bold">{errorMessage}</p>
+              <p className="text-[11px] opacity-75 mt-0.5">{t.micPermissionHint}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleStartRecording}
+            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/30 transition-all shrink-0 hover:scale-105 active:scale-95"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>{t.requestMicAgainBtn}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Success Preview Alert on Speaker */}
+      {previewSuccessMessage && (
+        <div className="mb-5 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{previewSuccessMessage}</span>
         </div>
       )}
 
@@ -411,39 +467,73 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
                 </div>
               </div>
 
-              {/* Audio Preview Controls */}
+              {/* Audio Preview Controls with explicit Local Device vs Speaker Option (Image 1 fix) */}
               {audioUrl && (
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="w-full space-y-3 pt-2">
                   <audio
                     ref={previewAudioRef}
                     src={audioUrl}
                     onEnded={() => setIsPlayingPreview(false)}
                     className="hidden"
                   />
-                  <button
-                    type="button"
-                    onClick={handleTogglePreview}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                      isPlayingPreview
-                        ? 'bg-cyan-500 text-slate-950 border-cyan-400'
-                        : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-cyan-400' : 'bg-slate-100 border-slate-200 text-sky-700'
-                    }`}
-                  >
-                    {isPlayingPreview ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                    <span>{isPlayingPreview ? 'Pause' : t.previewVoiceBtn}</span>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={handleDiscardRecording}
-                    disabled={recorderStatus === 'broadcasting'}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-50 ${
-                      theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>{t.discardVoiceBtn}</span>
-                  </button>
+                  {/* Destination indicator box */}
+                  <div className={`p-3.5 rounded-2xl border ${
+                    theme === 'dark' ? 'bg-[#0E1B38]/60 border-[#1F3152]' : 'bg-slate-100/80 border-slate-200'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                      <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+                        <Headphones className="w-4 h-4 text-cyan-400" />
+                        {t.previewDestinationTitle}
+                      </span>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                        {t.previewLocalDevice}
+                      </span>
+                    </div>
+                    <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {t.previewLocalDeviceDesc}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTogglePreview}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border shadow-sm transition-all ${
+                        isPlayingPreview
+                          ? 'bg-cyan-500 text-slate-950 border-cyan-400'
+                          : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-cyan-400 hover:bg-[#1A284A]' : 'bg-white border-slate-200 text-sky-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isPlayingPreview ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                      <span>{isPlayingPreview ? 'Pause' : t.previewVoiceBtn} ({t.previewLocalDevice})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleTestOnSpeaker}
+                      disabled={isTestingOnSpeaker}
+                      title={t.previewServerSpeaker}
+                      className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                        theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-amber-400 hover:bg-[#1A284A]' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                      }`}
+                    >
+                      {isTestingOnSpeaker ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Speaker className="w-3.5 h-3.5" />}
+                      <span>{isTestingOnSpeaker ? t.testingOnSpeaker : t.previewServerSpeakerBtn}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDiscardRecording}
+                      disabled={recorderStatus === 'broadcasting' || isTestingOnSpeaker}
+                      className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-50 ${
+                        theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{t.discardVoiceBtn}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

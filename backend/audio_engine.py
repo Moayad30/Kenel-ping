@@ -49,6 +49,8 @@ def get_audio_device_info() -> dict:
         "card_type": "internal",  # "internal" | "bluetooth" | "usb" | "hdmi"
         "is_bluetooth": False,
         "is_external_speaker": False,
+        "speaker_connected": False,
+        "active_output": "internal_card",
         "label_ar": "Device Audio Ready",
         "label_en": "Device Audio Ready",
         "card_details": "Internal Sound Card"
@@ -83,21 +85,29 @@ def get_audio_device_info() -> dict:
                     info["card_type"] = "bluetooth"
                     info["is_bluetooth"] = True
                     info["is_external_speaker"] = True
+                    info["speaker_connected"] = True
+                    info["active_output"] = "speaker"
                     info["label_ar"] = "Speaker Ready"
                     info["label_en"] = "Speaker Ready"
                 elif "usb" in lower:
                     info["card_type"] = "usb"
                     info["is_external_speaker"] = True
+                    info["speaker_connected"] = True
+                    info["active_output"] = "speaker"
                     info["label_ar"] = "USB Speaker Ready"
                     info["label_en"] = "USB Speaker Ready"
                 elif "hdmi" in lower:
                     info["card_type"] = "hdmi"
                     info["is_external_speaker"] = False
+                    info["speaker_connected"] = False
+                    info["active_output"] = "internal_card"
                     info["label_ar"] = "HDMI Audio Ready"
                     info["label_en"] = "HDMI Audio Ready"
                 else:
                     info["card_type"] = "internal"
                     info["is_external_speaker"] = False
+                    info["speaker_connected"] = False
+                    info["active_output"] = "internal_card"
                     info["label_ar"] = "Device Audio Ready"
                     info["label_en"] = "Device Audio Ready"
                 return info
@@ -117,6 +127,8 @@ def get_audio_device_info() -> dict:
                         info["card_details"] = f"Internal Sound Card ({chip_name})"
                         info["card_type"] = "internal"
                         info["is_external_speaker"] = False
+                        info["speaker_connected"] = False
+                        info["active_output"] = "internal_card"
                         info["label_ar"] = "Device Audio Ready"
                         info["label_en"] = "Device Audio Ready"
                         return info
@@ -127,8 +139,8 @@ def get_audio_device_info() -> dict:
     try:
         if os.path.exists("/proc/asound/cards"):
             with open("/proc/asound/cards", "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                lines = [l.strip() for l in content.splitlines() if l.strip()]
+                content_cards = f.read().strip()
+                lines = [l.strip() for l in content_cards.splitlines() if l.strip()]
                 for line in lines:
                     if any(k in line for k in ["Generic", "ALC", "Realtek", "Analog"]):
                         name = line.split(":")[-1].strip() if ":" in line else line
@@ -136,6 +148,8 @@ def get_audio_device_info() -> dict:
                         info["card_details"] = name
                         info["card_type"] = "internal"
                         info["is_external_speaker"] = False
+                        info["speaker_connected"] = False
+                        info["active_output"] = "internal_card"
                         info["label_ar"] = "Device Audio Ready"
                         info["label_en"] = "Device Audio Ready"
                         return info
@@ -143,10 +157,101 @@ def get_audio_device_info() -> dict:
                     name = lines[0].split(":")[-1].strip() if ":" in lines[0] else lines[0]
                     info["device_name"] = name
                     info["card_details"] = name
+                    info["is_external_speaker"] = False
+                    info["speaker_connected"] = False
+                    info["active_output"] = "internal_card"
     except Exception:
         pass
 
     return info
+
+def get_paired_bluetooth_devices() -> list:
+    """List paired Bluetooth audio devices on the host system."""
+    devices = []
+    try:
+        res = subprocess.run(["bluetoothctl", "paired-devices"], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout:
+            for line in res.stdout.splitlines():
+                m = re.match(r"Device\s+([0-9A-Fa-f:]{17})\s+(.+)", line.strip())
+                if m:
+                    devices.append({
+                        "mac": m.group(1),
+                        "name": m.group(2).strip()
+                    })
+    except Exception:
+        pass
+    return devices
+
+async def reconnect_bluetooth_speaker(target_mac: Optional[str] = None) -> dict:
+    """
+    Attempts to connect or reconnect to the office Bluetooth speaker.
+    Allows members or admin to reconnect the speaker remotely without physical access to the server.
+    """
+    settings = load_settings()
+    mac = target_mac or settings.bluetooth_speaker_mac
+
+    paired = get_paired_bluetooth_devices()
+    if not mac and paired:
+        speaker_candidate = next(
+            (d for d in paired if any(k in d["name"].lower() for k in ["speaker", "flip", "charge", "sound", "audio", "bt", "bafle"])),
+            paired[0]
+        )
+        mac = speaker_candidate["mac"]
+        settings.bluetooth_speaker_mac = mac
+        settings.bluetooth_speaker_name = speaker_candidate["name"]
+        save_settings(settings)
+
+    if not mac:
+        return {
+            "success": False,
+            "message": "No paired Bluetooth speaker found. Please pair the speaker in Bluetooth settings first.",
+            "device": get_audio_device_info()
+        }
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "bluetoothctl", "connect", mac,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=8.0)
+        out_str = (stdout.decode(errors="ignore") + " " + stderr.decode(errors="ignore")).strip()
+
+        await asyncio.sleep(1.0)
+        info = get_audio_device_info()
+        is_connected = info.get("is_external_speaker", False) or "Connection successful" in out_str
+
+        device_name = info.get("device_name", "Bluetooth Speaker")
+        if is_connected:
+            settings.bluetooth_speaker_mac = mac
+            settings.bluetooth_speaker_name = device_name
+            save_settings(settings)
+            await audio_engine.broadcast_state()
+            return {
+                "success": True,
+                "message": f"Successfully connected to speaker: {device_name}",
+                "device": info
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Reconnect signal sent to {mac}. Please make sure the speaker is powered on and within range.",
+                "details": out_str[:120],
+                "device": info
+            }
+    except asyncio.TimeoutError:
+        return {
+            "success": False,
+            "message": "Connection attempt timed out. Please ensure the speaker is turned on.",
+            "device": get_audio_device_info()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Bluetooth connection error: {str(e)}",
+            "device": get_audio_device_info()
+        }
+
 
 class AudioEngine:
     def __init__(self):
@@ -459,6 +564,18 @@ class AudioEngine:
             await self.broadcast_state()
 
         return {"id": item_id, "status": "broadcasted"}
+
+    async def test_voice_recording_on_speaker(self, file_path: Path) -> dict:
+        """Plays voice recording on the server speaker for preview, then immediately deletes it."""
+        try:
+            await self.play_audio_file(file_path)
+            return {"success": True, "message": "Voice test played on speaker"}
+        finally:
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                except Exception:
+                    pass
 
     async def _queue_worker(self):
         while True:

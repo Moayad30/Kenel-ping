@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Volume2, VolumeX, Mic, Bell, Users, Calendar, Code, RotateCcw,
   PhoneCall, Rocket, CheckCircle2, Snowflake, AlertTriangle, ServerCrash,
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
-  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker
+  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
+import RoutineActions from './RoutineActions';
+import QuickSnippets from './QuickSnippets';
 
 const ICON_MAP = {
   Users, Calendar, Code, RotateCcw, PhoneCall, Rocket, CheckCircle2,
@@ -46,11 +48,13 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
   const [customTitle, setCustomTitle] = useState('');
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
   const [isTashkeelLoading, setIsTashkeelLoading] = useState(false);
+  const textareaRef = useRef(null);
 
   // Audio Device & Volume Control Modal
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(85);
+  const [isReconnectingSpeaker, setIsReconnectingSpeaker] = useState(false);
 
   // Feedback & Cooldown State
   const [toast, setToast] = useState(null);
@@ -277,6 +281,52 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
     }
   };
 
+  // Remote Bluetooth Speaker Reconnect Handler (Image 4 fix)
+  const handleReconnectSpeaker = async () => {
+    setIsReconnectingSpeaker(true);
+    try {
+      const res = await fetch('/api/bluetooth/reconnect', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || t.reconnectSuccess, 'success');
+        if (data.device) {
+          setSystemState((prev) => ({ ...prev, audio_device: data.device }));
+        }
+      } else {
+        showToast(data.message || t.reconnectFailed, 'warning');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    } finally {
+      setIsReconnectingSpeaker(false);
+    }
+  };
+
+  // Insert Quick Snippet at current textarea cursor position
+  const handleInsertSnippet = (snippetText) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setCustomText((prev) => (prev ? `${prev} ${snippetText}` : snippetText));
+      return;
+    }
+
+    const start = textarea.selectionStart || customText.length;
+    const end = textarea.selectionEnd || customText.length;
+    const before = customText.substring(0, start);
+    const after = customText.substring(end);
+
+    const needsSpaceBefore = before.length > 0 && !before.endsWith(' ');
+    const inserted = (needsSpaceBefore ? ' ' : '') + snippetText + ' ';
+    const updated = before + inserted + after;
+
+    setCustomText(updated);
+    setTimeout(() => {
+      textarea.focus();
+      const newCursor = start + inserted.length;
+      textarea.setSelectionRange(newCursor, newCursor);
+    }, 10);
+  };
+
   // Filter presets by search and category
   const filteredPresets = useMemo(() => {
     return presets.filter((p) => {
@@ -297,11 +347,13 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
   }, [presets, selectedCategory, searchQuery]);
 
   // Determine current status label
+  const isSpeakerConnected = Boolean(systemState.audio_device?.is_external_speaker);
+
   const getStatusLabel = () => {
     if (systemState.status === 'speaking') return t.statusSpeaking;
     if (systemState.status === 'queued') return `${t.statusQueued} (${systemState.queue_length})`;
-    if (systemState.audio_device?.is_external_speaker) return t.statusSpeakerReady;
-    return t.statusDeviceReady;
+    if (isSpeakerConnected) return t.speakerConnected || t.statusSpeakerReady;
+    return t.speakerDisconnected || t.statusDeviceReady;
   };
 
   return (
@@ -343,12 +395,14 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
             {/* Header Controls: Status Pill, Member Volume, Cooldown, Theme, Language */}
             <div className="flex items-center gap-2.5 sm:gap-3">
               
-              {/* Clickable Live Audio Status Pill */}
+              {/* Clickable Live Audio Status Pill (Image 4 Fix) */}
               <button
                 onClick={() => setIsAudioModalOpen(true)}
                 title={t.deviceAudioSettingsTitle}
-                className={`flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold cursor-pointer transition-all hover:scale-105 ${
-                  theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] hover:border-[#00D2FF]/60' : 'bg-slate-100 border-slate-200 hover:border-sky-400'
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold cursor-pointer transition-all hover:scale-105 ${
+                  isSpeakerConnected
+                    ? theme === 'dark' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : theme === 'dark' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
                 }`}
               >
                 {systemState.status === 'speaking' ? (
@@ -367,17 +421,38 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                       {t.statusQueued} ({systemState.queue_length})
                     </span>
                   </>
+                ) : isSpeakerConnected ? (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34D399]" />
+                    <Speaker className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="text-xs font-bold">
+                      {getStatusLabel()}
+                    </span>
+                  </>
                 ) : (
                   <>
-                    <span className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px_#34D399] ${
-                      systemState.audio_device?.is_external_speaker ? 'bg-emerald-400' : 'bg-cyan-400'
-                    }`} />
-                    <span className={`text-xs font-medium ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#F59E0B]" />
+                    <Laptop className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="text-xs font-bold">
                       {getStatusLabel()}
                     </span>
                   </>
                 )}
               </button>
+
+              {/* Quick Remote Bluetooth Speaker Reconnect Button (Shown when speaker is not connected) */}
+              {!isSpeakerConnected && (
+                <button
+                  type="button"
+                  onClick={handleReconnectSpeaker}
+                  disabled={isReconnectingSpeaker}
+                  title={t.reconnectSpeakerTitle}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 shadow-sm transition-all hover:scale-105 active:scale-95 shrink-0"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isReconnectingSpeaker ? 'animate-spin' : ''}`} />
+                  <span>{isReconnectingSpeaker ? t.reconnectingSpeaker : t.reconnectSpeakerBtn}</span>
+                </button>
+              )}
 
               {/* Clickable Member Volume Badge */}
               <button
@@ -476,20 +551,39 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
               </p>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className={`px-2.5 py-1 rounded-full font-semibold text-[11px] ${
-                  systemState.audio_device?.is_external_speaker
+                  isSpeakerConnected
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                 }`}>
-                  {systemState.audio_device?.is_external_speaker ? t.soundCardBluetooth : t.soundCardInternal}
+                  {isSpeakerConnected ? t.soundCardBluetooth : t.soundCardInternal}
                 </span>
                 <span className="text-[11px] opacity-75">
                   {t.audioDestinationNotice}
                 </span>
               </div>
+
+              {/* Reconnect notice when speaker is disconnected */}
+              {!isSpeakerConnected && (
+                <div className="mt-3.5 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                    <p className="text-[11px] leading-relaxed">{t.speakerNoticeInternal}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleReconnectSpeaker}
+                    disabled={isReconnectingSpeaker}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shrink-0 shadow-md transition-all hover:scale-105 active:scale-95"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isReconnectingSpeaker ? 'animate-spin' : ''}`} />
+                    <span>{isReconnectingSpeaker ? t.reconnectingSpeaker : t.reconnectSpeakerBtn}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Interactive Volume Slider */}
-            <div className="space-y-4 mb-6">
+            {/* Interactive Volume Slider (Synchronized in LTR) */}
+            <div className="space-y-3 mb-6">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-300">
                   {t.volumeSliderLabel}
@@ -499,46 +593,51 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 </span>
               </div>
 
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={systemState.server_volume}
-                onChange={(e) => handleSetVolume(e.target.value)}
-                className="w-full h-2.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
-              />
+              <div dir="ltr" className="w-full space-y-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={systemState.server_volume}
+                  onChange={(e) => handleSetVolume(e.target.value)}
+                  style={{
+                    background: `linear-gradient(to right, #00D2FF 0%, #00D2FF ${systemState.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${systemState.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                  }}
+                  className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
+                />
 
-              {/* Quick Volume Preset Buttons */}
-              <div className="flex items-center justify-between gap-2 pt-2">
-                <div className="flex items-center gap-1.5">
-                  {[25, 50, 75, 100].map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => handleSetVolume(v)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all ${
-                        systemState.server_volume === v
-                          ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF]'
-                          : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:bg-[#1C2A47]' : 'bg-slate-100 border-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {v}%
-                    </button>
-                  ))}
+                {/* Quick Volume Preset Buttons */}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    {[0, 25, 50, 75, 100].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => handleSetVolume(v)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold border transition-all ${
+                          systemState.server_volume === v
+                            ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF] shadow-sm'
+                            : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:bg-[#1C2A47]' : 'bg-slate-100 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {v}%
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleMute}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                      isMuted || systemState.server_volume === 0
+                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                        : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {isMuted || systemState.server_volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    <span>{isMuted || systemState.server_volume === 0 ? t.unmuteBtn : t.muteBtn}</span>
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleToggleMute}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                    isMuted || systemState.server_volume === 0
-                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                      : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  {isMuted || systemState.server_volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                  <span>{isMuted || systemState.server_volume === 0 ? t.unmuteBtn : t.muteBtn}</span>
-                </button>
               </div>
             </div>
 
@@ -748,7 +847,15 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
           </div>
         </section>
 
-        {/* Free Speech Box with AI Tashkeel and Universal Cooldown */}
+        {/* Quick Routine & Device Announcements (Requested Feature) */}
+        <div className="max-w-4xl mx-auto">
+          <RoutineActions
+            onRoutineSpoke={(msg, type) => showToast(msg, type || 'success')}
+            cooldownRemaining={cooldownRemaining}
+          />
+        </div>
+
+        {/* Free Speech Box with AI Tashkeel, Quick Snippets, and Universal Cooldown */}
         <div className="max-w-4xl mx-auto">
           
           <section className={`border rounded-3xl p-6 sm:p-8 shadow-xl transition-colors duration-200 ${
@@ -776,9 +883,13 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 </span>
               </div>
 
+              {/* Quick Snippets Chips */}
+              <QuickSnippets onSelectSnippet={handleInsertSnippet} />
+
               <form onSubmit={handleCustomSubmit} className="space-y-4">
                 <div className="relative">
                   <textarea
+                    ref={textareaRef}
                     rows={4}
                     maxLength={400}
                     value={customText}

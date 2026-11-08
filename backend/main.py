@@ -12,10 +12,15 @@ from backend.config import (
     load_settings, save_settings, SettingsModel,
     load_presets, save_presets, PresetModel,
     load_categories, save_categories, CategoryModel,
+    load_routines, save_routines, RoutineModel,
+    load_snippets, save_snippets, SnippetModel,
     load_audit, save_audit, PRESETS_DIR, CHIMES_DIR, TEMP_DIR, BASE_DIR
 )
 from backend.auth import authenticate_admin, create_access_token, require_admin
-from backend.audio_engine import audio_engine, detect_language
+from backend.audio_engine import (
+    audio_engine, detect_language, get_audio_device_info,
+    reconnect_bluetooth_speaker, get_paired_bluetooth_devices
+)
 from backend.tashkeel import diacritize_arabic
 
 @asynccontextmanager
@@ -63,6 +68,12 @@ class TestVoiceRequest(BaseModel):
 
 class TashkeelRequest(BaseModel):
     text: str
+
+class RoutineSpeakRequest(BaseModel):
+    value: str = "1"
+
+class BluetoothReconnectRequest(BaseModel):
+    mac: Optional[str] = None
 
 # ----------------- WebSocket -----------------
 
@@ -255,6 +266,140 @@ async def speak_device_or_person(payload: SpeakCallRequest, request: Request):
         "message": "Call initiated", 
         "item": item
     }
+
+# ----------------- Routines & Quick Device Actions -----------------
+
+@app.get("/api/routines")
+async def get_routines():
+    """Returns list of routine announcement templates."""
+    return load_routines()
+
+@app.post("/api/routines")
+async def create_routine(routine: RoutineModel):
+    """Creates a new routine template."""
+    routines = load_routines()
+    if any(r.id == routine.id for r in routines):
+        routine.id = f"routine_{uuid.uuid4().hex[:6]}"
+    routines.append(routine)
+    save_routines(routines)
+    return {"success": True, "routine": routine}
+
+@app.put("/api/routines/{routine_id}")
+async def update_routine(routine_id: str, updated: RoutineModel):
+    """Updates an existing routine template."""
+    routines = load_routines()
+    idx = next((i for i, r in enumerate(routines) if r.id == routine_id), -1)
+    if idx == -1:
+        raise HTTPException(status_code=404, detail="Routine template not found")
+    routines[idx] = updated
+    save_routines(routines)
+    return {"success": True, "routine": updated}
+
+@app.delete("/api/routines/{routine_id}")
+async def delete_routine(routine_id: str):
+    """Deletes a routine template."""
+    routines = load_routines()
+    filtered = [r for r in routines if r.id != routine_id]
+    if len(filtered) == len(routines):
+        raise HTTPException(status_code=404, detail="Routine template not found")
+    save_routines(filtered)
+    return {"success": True, "deleted_id": routine_id}
+
+@app.post("/api/routines/{routine_id}/speak")
+async def speak_routine(routine_id: str, payload: RoutineSpeakRequest, request: Request):
+    """Triggers speech for a routine template with substituted value."""
+    can_proceed, remaining = audio_engine.check_cooldown()
+    if not can_proceed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining}s before sending another announcement"
+        )
+
+    routines = load_routines()
+    routine = next((r for r in routines if r.id == routine_id), None)
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine template not found")
+
+    val = str(payload.value).strip() if payload.value is not None else "1"
+    text = routine.template.replace("{num}", val).replace("{x}", val).replace("{X}", val)
+    detected_lang = detect_language(text)
+
+    client_ip = request.client.host if request.client else "Local"
+    title = routine.title or f"Routine #{val}"
+    item = await audio_engine.enqueue(
+        title=title,
+        text=text,
+        source="routine",
+        sender_ip=client_ip,
+        lang=detected_lang
+    )
+    return {
+        "success": True,
+        "message": "Routine queued successfully",
+        "item": item
+    }
+
+# ----------------- Quick Snippets / Suggestions -----------------
+
+@app.get("/api/snippets")
+async def get_snippets():
+    """Returns quick snippet suggestions for free speech input."""
+    return load_snippets()
+
+@app.post("/api/snippets")
+async def create_snippet(snippet: SnippetModel):
+    """Creates a new snippet suggestion."""
+    snippets = load_snippets()
+    if any(s.id == snippet.id for s in snippets):
+        snippet.id = f"snip_{uuid.uuid4().hex[:6]}"
+    snippets.append(snippet)
+    save_snippets(snippets)
+    return {"success": True, "snippet": snippet}
+
+@app.put("/api/snippets/{snippet_id}")
+async def update_snippet(snippet_id: str, updated: SnippetModel):
+    """Updates an existing snippet suggestion."""
+    snippets = load_snippets()
+    idx = next((i for i, s in enumerate(snippets) if s.id == snippet_id), -1)
+    if idx == -1:
+        raise HTTPException(status_code=404, detail="Snippet not found")
+    snippets[idx] = updated
+    save_snippets(snippets)
+    return {"success": True, "snippet": updated}
+
+@app.delete("/api/snippets/{snippet_id}")
+async def delete_snippet(snippet_id: str):
+    """Deletes a snippet suggestion."""
+    snippets = load_snippets()
+    filtered = [s for s in snippets if s.id != snippet_id]
+    if len(filtered) == len(snippets):
+        raise HTTPException(status_code=404, detail="Snippet not found")
+    save_snippets(filtered)
+    return {"success": True, "deleted_id": snippet_id}
+
+# ----------------- Remote Bluetooth Management -----------------
+
+@app.get("/api/bluetooth/status")
+async def get_bluetooth_status():
+    """Returns paired Bluetooth audio devices and current active sink."""
+    paired = get_paired_bluetooth_devices()
+    device_info = get_audio_device_info()
+    settings = load_settings()
+    return {
+        "paired_devices": paired,
+        "configured_mac": settings.bluetooth_speaker_mac,
+        "configured_name": settings.bluetooth_speaker_name,
+        "active_device": device_info
+    }
+
+@app.post("/api/bluetooth/reconnect")
+async def trigger_bluetooth_reconnect(payload: Optional[BluetoothReconnectRequest] = None):
+    """
+    Triggers remote reconnection to the office Bluetooth speaker without physical access to the server.
+    """
+    mac = payload.mac if payload else None
+    result = await reconnect_bluetooth_speaker(target_mac=mac)
+    return result
 
 # ----------------- Admin Authentication -----------------
 
@@ -546,6 +691,27 @@ async def admin_test_voice(payload: TestVoiceRequest, admin: dict = Depends(requ
         return {"success": True, "message": f"Voice test triggered for {payload.voice}", "voice": payload.voice}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS generation error: {str(e)}")
+
+@app.post("/api/admin/test-voice-recording")
+async def admin_test_voice_recording(file: UploadFile = File(...), admin: dict = Depends(require_admin)):
+    """Tests admin voice recording playback on speaker before final broadcast, then deletes it."""
+    ext = "webm"
+    if file.filename and "." in file.filename:
+        ext = file.filename.rsplit(".", 1)[-1]
+    filename = f"test_voice_{uuid.uuid4().hex[:8]}.{ext}"
+    temp_path = TEMP_DIR / filename
+    try:
+        content = await file.read()
+        with open(temp_path, "wb") as f:
+            f.write(content)
+        return await audio_engine.test_voice_recording_on_speaker(temp_path)
+    except Exception as e:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=f"Voice test error: {str(e)}")
 
 # ----------------- Static SPA Support for Production / Debian 13 -----------------
 from fastapi.staticfiles import StaticFiles

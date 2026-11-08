@@ -14,6 +14,8 @@ SETTINGS_FILE = STORAGE_DIR / "settings.json"
 PRESETS_FILE = STORAGE_DIR / "presets.json"
 CATEGORIES_FILE = STORAGE_DIR / "categories.json"
 AUDIT_FILE = STORAGE_DIR / "audit.json"
+ROUTINES_FILE = STORAGE_DIR / "routines.json"
+SNIPPETS_FILE = STORAGE_DIR / "snippets.json"
 
 JWT_SECRET = os.getenv("KERNELPING_JWT_SECRET", "kernelping_stealth_secret_2026_xyz_7721")
 JWT_ALGORITHM = "HS256"
@@ -33,6 +35,8 @@ class SettingsModel(BaseModel):
     chime_volume: int = Field(default=80, ge=0, le=100)
     bluetooth_wakeup_enabled: bool = True
     server_volume: int = Field(default=85, ge=0, le=100)
+    bluetooth_speaker_mac: Optional[str] = None
+    bluetooth_speaker_name: Optional[str] = None
     tts_voice_ar: str = "ar-SY-LaithNeural"
     tts_voice_en: str = "en-US-AriaNeural"
     speech_rate: str = "+0%"
@@ -70,9 +74,23 @@ class AuditEntry(BaseModel):
     timestamp: str
     text: str
     title: Optional[str] = None
-    source: str  # "preset" | "free_text" | "device_call" | "admin_voice"
+    source: str  # "preset" | "free_text" | "device_call" | "admin_voice" | "routine"
     sender_ip: Optional[str] = None
     language: Optional[str] = "ar"
+
+class RoutineModel(BaseModel):
+    id: str
+    title: Optional[str] = None
+    template: str  # e.g. "Where is device #{num}?" with placeholder {num}
+    default_value: Optional[str] = "1"
+    icon: Optional[str] = "Cpu"  # Cpu, CheckCircle2, Clock, Search, Laptop, AlertCircle
+    color: Optional[str] = "cyan"  # cyan, emerald, amber, rose, blue, purple
+    order: Optional[int] = 0
+
+class SnippetModel(BaseModel):
+    id: str
+    text: str  # e.g. "Where is device #"
+    order: Optional[int] = 0
 
 def load_settings() -> SettingsModel:
     if SETTINGS_FILE.exists():
@@ -134,3 +152,82 @@ def load_audit() -> List[dict]:
 def save_audit(audit_entries: List[dict]):
     with open(AUDIT_FILE, "w", encoding="utf-8") as f:
         json.dump(audit_entries[-100:], f, ensure_ascii=False, indent=2)
+
+def load_routines() -> List[RoutineModel]:
+    if ROUTINES_FILE.exists():
+        try:
+            with open(ROUTINES_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return [RoutineModel(**item) for item in data]
+        except Exception:
+            pass
+    # Default built-in routines
+    default_routines = [
+        RoutineModel(
+            id="routine_locate_device",
+            title="Locate Device / \u0645\u0643\u0627\u0646 \u062c\u0647\u0627\u0632",
+            template="\u0623\u064a\u0646 \u0647\u0648 \u062c\u0647\u0627\u0632 \u0631\u0642\u0645 {num}\u061f",
+            default_value="1",
+            icon="Search",
+            color="cyan",
+            order=1
+        ),
+        RoutineModel(
+            id="routine_completed_count",
+            title="Completed Devices / \u0625\u0646\u062c\u0627\u0632 \u0623\u062c\u0647\u0632\u0629",
+            template="\u062a\u0645 \u0625\u0646\u062c\u0627\u0632 {num} \u062c\u0647\u0627\u0632 \u0625\u0644\u0649 \u0627\u0644\u0622\u0646.",
+            default_value="70",
+            icon="CheckCircle2",
+            color="emerald",
+            order=2
+        ),
+        RoutineModel(
+            id="routine_pending_count",
+            title="Pending Devices / \u0623\u062c\u0647\u0632\u0629 \u0645\u062a\u0628\u0642\u064a\u0629",
+            template="\u064a\u0648\u062c\u062f {num} \u0623\u062c\u0647\u0632\u0629 \u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0628\u062f\u0621 \u0628\u0647\u0627 \u0628\u0639\u062f.",
+            default_value="10",
+            icon="Clock",
+            color="amber",
+            order=3
+        ),
+        RoutineModel(
+            id="routine_deliver_device",
+            title="Deliver Device / \u062a\u0633\u0644\u064a\u0645 \u062c\u0647\u0627\u0632",
+            template="\u064a\u0631\u062c\u0649 \u062a\u0633\u0644\u064a\u0645 \u062c\u0647\u0627\u0632 \u0631\u0642\u0645 {num} \u0644\u0642\u0633\u0645 \u0627\u0644\u0627\u0633\u062a\u0644\u0627\u0645.",
+            default_value="5",
+            icon="Cpu",
+            color="rose",
+            order=4
+        )
+    ]
+    save_routines(default_routines)
+    return default_routines
+
+def save_routines(routines: List[RoutineModel]):
+    with open(ROUTINES_FILE, "w", encoding="utf-8") as f:
+        json.dump([r.model_dump() for r in routines], f, ensure_ascii=False, indent=2)
+
+def load_snippets() -> List[SnippetModel]:
+    if SNIPPETS_FILE.exists():
+        try:
+            with open(SNIPPETS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return [SnippetModel(**item) for item in data]
+        except Exception:
+            pass
+    # Default built-in quick snippets
+    default_snippets = [
+        SnippetModel(id="snip_locate", text="\u0623\u064a\u0646 \u062c\u0647\u0627\u0632 \u0631\u0642\u0645 ", order=1),
+        SnippetModel(id="snip_completed", text="\u062a\u0645 \u0625\u0646\u062c\u0627\u0632 ", order=2),
+        SnippetModel(id="snip_pending", text="\u064a\u0648\u062c\u062f \u0623\u062c\u0647\u0632\u0629 \u0644\u0645 \u062a\u0628\u062f\u0623: ", order=3),
+        SnippetModel(id="snip_go_to", text="\u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0648\u062c\u0647 \u0625\u0644\u0649 ", order=4),
+        SnippetModel(id="snip_reminder", text="\u062a\u0630\u0643\u064a\u0631: ", order=5),
+        SnippetModel(id="snip_urgent", text="\u0639\u0627\u062c\u0644 \u062c\u062f\u0627\u064b: ", order=6),
+        SnippetModel(id="snip_meeting", text="\u0627\u062c\u062a\u0645\u0627\u0639 \u0641\u0648\u0631\u064a \u0641\u064a \u0642\u0627\u0639\u0629 \u0627\u0644\u062a\u0646\u0633\u064a\u0642 ", order=7)
+    ]
+    save_snippets(default_snippets)
+    return default_snippets
+
+def save_snippets(snippets: List[SnippetModel]):
+    with open(SNIPPETS_FILE, "w", encoding="utf-8") as f:
+        json.dump([s.model_dump() for s in snippets], f, ensure_ascii=False, indent=2)

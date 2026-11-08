@@ -40,6 +40,7 @@ export default function AdminApp() {
   // Audit deletion confirmation modal state
   const [auditToDelete, setAuditToDelete] = useState(null);
   const [showClearAllAuditModal, setShowClearAllAuditModal] = useState(false);
+  const [isReconnectingSpeaker, setIsReconnectingSpeaker] = useState(false);
 
   // Category Modals
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
@@ -217,6 +218,23 @@ export default function AdminApp() {
       });
     } catch {
       showToast('Error adjusting volume', 'error');
+    }
+  };
+
+  const handleReconnectSpeaker = async () => {
+    setIsReconnectingSpeaker(true);
+    try {
+      const res = await fetch('/api/bluetooth/reconnect', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || t.reconnectSuccess, 'success');
+      } else {
+        showToast(data.message || t.reconnectFailed, 'warning');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    } finally {
+      setIsReconnectingSpeaker(false);
     }
   };
 
@@ -616,11 +634,8 @@ export default function AdminApp() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className={`text-base font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {t.adminTitle}
+                  Kernel Ping Center
                 </h1>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
-                  {t.adminBadge}
-                </span>
               </div>
               <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                 {t.adminSubtitle}
@@ -760,26 +775,33 @@ export default function AdminApp() {
                   </span>
                   <span className="text-sm font-mono font-bold text-[#00D2FF]">{settings.server_volume}%</span>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={settings.server_volume}
-                  onChange={(e) => handleVolumeChange(e.target.value)}
-                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
-                />
-                <div className="flex justify-between gap-1.5 mt-3">
-                  {[25, 50, 75, 85, 100].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => handleVolumeChange(v)}
-                      className={`text-[11px] font-mono px-3 py-1 rounded-xl transition-colors ${
-                        theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {v}%
-                    </button>
-                  ))}
+                <div dir="ltr" className="w-full space-y-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={settings.server_volume}
+                    onChange={(e) => handleVolumeChange(e.target.value)}
+                    style={{
+                      background: `linear-gradient(to right, #00D2FF 0%, #00D2FF ${settings.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${settings.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                    }}
+                    className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
+                  />
+                  <div className="flex justify-between gap-1.5">
+                    {[0, 25, 50, 75, 100].map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => handleVolumeChange(v)}
+                        className={`text-[11px] font-mono px-2.5 py-1 rounded-xl transition-colors ${
+                          settings.server_volume === v
+                            ? 'bg-[#00D2FF] text-slate-950 font-bold shadow-sm'
+                            : theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {v}%
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -927,9 +949,9 @@ export default function AdminApp() {
                     </div>
                   </div>
 
-                  {/* Chime Volume Slider (Requirement 2) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
+                  {/* Chime Volume Slider (Image 2 Fix - Synchronized LTR track & buttons) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
                       <label className={`text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
                         {t.chimeVolumeLabel}
                       </label>
@@ -937,33 +959,62 @@ export default function AdminApp() {
                         {settings.chime_volume ?? 80}%
                       </span>
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={settings.chime_volume ?? 80}
-                      onChange={(e) => updateSetting('chime_volume', Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-amber-400"
-                    />
-                    <div className="flex justify-between gap-1.5 mt-2">
-                      {[25, 50, 75, 80, 100].map((v) => (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => updateSetting('chime_volume', v)}
-                          className={`text-[11px] font-mono px-3 py-1 rounded-xl transition-colors ${
-                            (settings.chime_volume ?? 80) === v
-                              ? 'bg-amber-400 text-slate-950 font-bold'
-                              : theme === 'dark' ? 'bg-[#162238] text-slate-300 hover:bg-[#1F3152]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          {v}%
-                        </button>
-                      ))}
+
+                    <div dir="ltr" className="w-full space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={settings.chime_volume ?? 80}
+                        onChange={(e) => updateSetting('chime_volume', Number(e.target.value))}
+                        style={{
+                          background: `linear-gradient(to right, #F59E0B 0%, #F59E0B ${settings.chime_volume ?? 80}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${settings.chime_volume ?? 80}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                        }}
+                        className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                      />
+                      <div className="flex justify-between gap-1.5">
+                        {[0, 25, 50, 75, 100].map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => updateSetting('chime_volume', v)}
+                            className={`text-[11px] font-mono px-2.5 py-1 rounded-xl transition-colors ${
+                              (settings.chime_volume ?? 80) === v
+                                ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
+                                : theme === 'dark' ? 'bg-[#162238] text-slate-300 hover:bg-[#1F3152]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {v}%
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Remote Bluetooth Speaker Reconnect */}
+              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border ${
+                theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div>
+                  <h4 className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    {t.reconnectSpeakerTitle}
+                  </h4>
+                  <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t.reconnectSpeakerDesc}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleReconnectSpeaker}
+                  disabled={isReconnectingSpeaker}
+                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/20 transition-all shrink-0 hover:scale-105 active:scale-95"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isReconnectingSpeaker ? 'animate-spin' : ''}`} />
+                  <span>{isReconnectingSpeaker ? t.reconnectingSpeaker : t.reconnectSpeakerBtn}</span>
+                </button>
+              </div>
 
               {/* Bluetooth Wake-up Ping */}
               <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${
