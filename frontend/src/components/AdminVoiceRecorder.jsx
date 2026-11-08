@@ -1,22 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic, Square, Play, Pause, RotateCcw, Send, Radio, ShieldCheck,
-  AlertCircle, Volume2, Loader2, CheckCircle2, Headphones, Speaker
+  AlertCircle, Loader2, RefreshCw, KeyRound
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 
 export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
-  const { theme, lang, t } = useThemeLang();
+  const { theme, t } = useThemeLang();
 
   // Recording lifecycle: 'idle' | 'recording' | 'paused' | 'stopped' | 'broadcasting'
   const [recorderStatus, setRecorderStatus] = useState('idle');
   const [recordDuration, setRecordDuration] = useState(0);
-  const [audioUrl, setAudioUrl] = useState(null);
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
-  const [isTestingOnSpeaker, setIsTestingOnSpeaker] = useState(false);
-  const [previewSuccessMessage, setPreviewSuccessMessage] = useState(null);
+  const [isRequestingMic, setIsRequestingMic] = useState(false);
+  const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   const mediaRecorderRef = useRef(null);
@@ -26,9 +24,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
   const streamRef = useRef(null);
-  const previewAudioRef = useRef(null);
 
-  // Clean up audio streams and timers on unmount
   useEffect(() => {
     return () => {
       cleanupResources();
@@ -52,13 +48,19 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Start Voice Recording
+  // Start voice recording with persistent permission error handling
   const handleStartRecording = async () => {
-    setErrorMessage(null);
-    setAudioUrl(null);
+    setIsRequestingMic(true);
     setAudioBlob(null);
     audioChunksRef.current = [];
     setRecordDuration(0);
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setErrorMessage("Microphone access is not supported by your browser or connection is not secure (requires HTTPS or localhost).");
+      setMicPermissionDenied(true);
+      setIsRequestingMic(false);
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -69,8 +71,10 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         }
       });
       streamRef.current = stream;
+      setMicPermissionDenied(false);
+      setErrorMessage(null);
 
-      // Setup Web Audio Analyser for live visual feedback
+      // Web Audio Visualizer
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioCtx();
@@ -96,10 +100,10 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         };
         updateLevel();
       } catch (audioErr) {
-        console.warn("AudioContext visualizer not supported:", audioErr);
+        console.warn("AudioContext visualizer unsupported:", audioErr);
       }
 
-      // Pick supported mime type
+      // Format selection
       let mimeType = 'audio/webm';
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
         mimeType = 'audio/webm;codecs=opus';
@@ -121,17 +125,14 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
       mediaRecorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         setAudioBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
         setRecorderStatus('stopped');
         setAudioLevel(0);
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       };
 
-      mediaRecorder.start(200); // 200ms slice chunks
+      mediaRecorder.start(200);
       setRecorderStatus('recording');
 
-      // Duration counter
       timerIntervalRef.current = setInterval(() => {
         setRecordDuration((prev) => {
           if (prev >= 60) {
@@ -143,13 +144,15 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
       }, 1000);
 
     } catch (err) {
-      console.error("Microphone error:", err);
+      console.error("Microphone permission error:", err);
+      setMicPermissionDenied(true);
       setErrorMessage(t.micAccessError);
       setRecorderStatus('idle');
+    } finally {
+      setIsRequestingMic(false);
     }
   };
 
-  // Pause recording
   const handlePauseRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.pause();
@@ -158,7 +161,6 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     }
   };
 
-  // Resume recording
   const handleResumeRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
       mediaRecorderRef.current.resume();
@@ -169,7 +171,6 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     }
   };
 
-  // Stop recording
   const handleStopRecording = () => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -180,63 +181,15 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     }
   };
 
-  // Discard and reset
   const handleDiscardRecording = () => {
     cleanupResources();
     setRecorderStatus('idle');
     setRecordDuration(0);
-    setAudioUrl(null);
     setAudioBlob(null);
     setAudioLevel(0);
-    setIsPlayingPreview(false);
   };
 
-  // Toggle preview playback
-  const handleTogglePreview = () => {
-    if (!previewAudioRef.current) return;
-    if (isPlayingPreview) {
-      previewAudioRef.current.pause();
-      setIsPlayingPreview(false);
-    } else {
-      previewAudioRef.current.play();
-      setIsPlayingPreview(true);
-    }
-  };
-
-  // Optional: test voice on office speaker before final broadcast
-  const handleTestOnSpeaker = async () => {
-    if (!audioBlob) return;
-    setIsTestingOnSpeaker(true);
-    setErrorMessage(null);
-    setPreviewSuccessMessage(null);
-
-    const formData = new FormData();
-    const ext = audioBlob.type.includes('ogg') ? 'ogg' : audioBlob.type.includes('mp4') ? 'mp4' : 'webm';
-    formData.append('file', audioBlob, `test_voice_${Date.now()}.${ext}`);
-
-    try {
-      const res = await fetch('/api/admin/test-voice-recording', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: formData
-      });
-      if (res.ok) {
-        setPreviewSuccessMessage(t.voiceTestPlayed);
-        setTimeout(() => setPreviewSuccessMessage(null), 4000);
-      } else {
-        const data = await res.json();
-        setErrorMessage(data.detail || t.errorGeneric);
-      }
-    } catch {
-      setErrorMessage(t.errorNetwork);
-    } finally {
-      setIsTestingOnSpeaker(false);
-    }
-  };
-
-  // Broadcast recorded voice to speaker with zero retention
+  // Direct broadcast to speaker with zero retention (NO preview player)
   const handleBroadcastVoice = async () => {
     if (!audioBlob) return;
     setRecorderStatus('broadcasting');
@@ -278,7 +231,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         : 'bg-white border-slate-200 shadow-slate-100'
     }`}>
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-700/30 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-700/30 mb-5">
         <div className="flex items-center gap-3">
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${
             recorderStatus === 'recording'
@@ -303,42 +256,45 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         </div>
 
         {/* Zero Retention Security Badge */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 self-start sm:self-auto">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
           <span>Zero Retention</span>
         </div>
       </div>
 
-      {/* Error Message Alert with Retry Permission Button (Image 1 fix) */}
-      {errorMessage && (
-        <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-rose-500/10">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 shrink-0" />
+      {/* Persistent Microphone Blocked Helper Card */}
+      {micPermissionDenied && (
+        <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs shadow-lg shadow-rose-500/10">
+          <div className="flex items-start gap-3 mb-3">
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-400 mt-0.5" />
             <div>
-              <p className="font-bold">{errorMessage}</p>
-              <p className="text-[11px] opacity-75 mt-0.5">{t.micPermissionHint}</p>
+              <p className="font-bold text-sm text-rose-200 mb-1">{t.micBlockedTitle}</p>
+              <ul className="space-y-1 text-xs opacity-90 list-disc list-inside">
+                <li>{t.micBlockedStep1}</li>
+                <li>{t.micBlockedStep2}</li>
+                <li>{t.micBlockedStep3}</li>
+              </ul>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleStartRecording}
-            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/30 transition-all shrink-0 hover:scale-105 active:scale-95"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>{t.requestMicAgainBtn}</span>
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleStartRecording}
+              disabled={isRequestingMic}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              {isRequestingMic ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              <span>{isRequestingMic ? 'Checking...' : t.micCheckAgainBtn}</span>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Success Preview Alert on Speaker */}
-      {previewSuccessMessage && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{previewSuccessMessage}</span>
-        </div>
-      )}
-
-      {/* Main Studio Interaction Container */}
+      {/* Main Recording Container */}
       <div className={`p-5 rounded-2xl border transition-all ${
         theme === 'dark' ? 'bg-[#070C1B]/70 border-[#1F3152]' : 'bg-slate-50 border-slate-200'
       }`}>
@@ -355,7 +311,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
                   {t.adminVoiceSubtitle}
                 </p>
                 <p className="text-xs opacity-65">
-                  Max length: 60s
+                  Max length: 60s • Automatic instant deletion
                 </p>
               </div>
             </div>
@@ -363,10 +319,11 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
             <button
               type="button"
               onClick={handleStartRecording}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 transition-all hover:scale-105 active:scale-95"
+              disabled={isRequestingMic}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
             >
-              <Mic className="w-4 h-4" />
-              <span>{t.startRecordBtn}</span>
+              {isRequestingMic ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+              <span>{isRequestingMic ? 'Connecting Mic...' : t.startRecordBtn}</span>
             </button>
           </div>
         )}
@@ -375,7 +332,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         {(recorderStatus === 'recording' || recorderStatus === 'paused') && (
           <div className="space-y-4 py-2">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              {/* Pulsing indicator & timer */}
+              {/* Timer */}
               <div className="flex items-center gap-3">
                 <span className={`w-3.5 h-3.5 rounded-full ${
                   recorderStatus === 'recording' ? 'bg-rose-500 animate-ping' : 'bg-amber-400'
@@ -395,7 +352,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
                 </span>
               </div>
 
-              {/* Action buttons */}
+              {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 {recorderStatus === 'recording' ? (
                   <button
@@ -422,7 +379,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
                 <button
                   type="button"
                   onClick={handleStopRecording}
-                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition-all"
+                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>{t.stopRecordBtn}</span>
@@ -430,7 +387,7 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
               </div>
             </div>
 
-            {/* Live Audio Visualizer Bar */}
+            {/* Visualizer Bar */}
             <div className="w-full bg-slate-800/60 rounded-xl h-3 p-0.5 overflow-hidden flex items-center gap-1">
               {Array.from({ length: 24 }).map((_, idx) => {
                 const barHeight = Math.max(15, Math.min(100, (audioLevel * (idx % 3 + 1)) % 100));
@@ -449,120 +406,56 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
           </div>
         )}
 
-        {/* State 4 & 5: Stopped / Preview / Broadcast */}
+        {/* State 4 & 5: Stopped / Ready to broadcast (NO PREVIEW PLAYER) */}
         {(recorderStatus === 'stopped' || recorderStatus === 'broadcasting') && (
-          <div className="space-y-4 py-1">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    {t.recordingFinished}
-                  </p>
-                  <span className="text-xs font-mono font-bold text-cyan-400">
-                    Duration: {formatDuration(recordDuration)}
-                  </span>
-                </div>
+          <div className="space-y-4 py-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+              <div>
+                <p className="text-xs font-bold text-emerald-400">
+                  {t.recordingFinished}
+                </p>
+                <span className="text-xs font-mono font-bold text-white">
+                  Duration: {formatDuration(recordDuration)}
+                </span>
               </div>
 
-              {/* Audio Preview Controls with explicit Local Device vs Speaker Option (Image 1 fix) */}
-              {audioUrl && (
-                <div className="w-full space-y-3 pt-2">
-                  <audio
-                    ref={previewAudioRef}
-                    src={audioUrl}
-                    onEnded={() => setIsPlayingPreview(false)}
-                    className="hidden"
-                  />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDiscardRecording}
+                  disabled={recorderStatus === 'broadcasting'}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-50 ${
+                    theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{t.discardVoiceBtn}</span>
+                </button>
 
-                  {/* Destination indicator box */}
-                  <div className={`p-3.5 rounded-2xl border ${
-                    theme === 'dark' ? 'bg-[#0E1B38]/60 border-[#1F3152]' : 'bg-slate-100/80 border-slate-200'
-                  }`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                      <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                        <Headphones className="w-4 h-4 text-cyan-400" />
-                        {t.previewDestinationTitle}
-                      </span>
-                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                        {t.previewLocalDevice}
-                      </span>
-                    </div>
-                    <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {t.previewLocalDeviceDesc}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleTogglePreview}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border shadow-sm transition-all ${
-                        isPlayingPreview
-                          ? 'bg-cyan-500 text-slate-950 border-cyan-400'
-                          : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-cyan-400 hover:bg-[#1A284A]' : 'bg-white border-slate-200 text-sky-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {isPlayingPreview ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                      <span>{isPlayingPreview ? 'Pause' : t.previewVoiceBtn} ({t.previewLocalDevice})</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleTestOnSpeaker}
-                      disabled={isTestingOnSpeaker}
-                      title={t.previewServerSpeaker}
-                      className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                        theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-amber-400 hover:bg-[#1A284A]' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-                      }`}
-                    >
-                      {isTestingOnSpeaker ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Speaker className="w-3.5 h-3.5" />}
-                      <span>{isTestingOnSpeaker ? t.testingOnSpeaker : t.previewServerSpeakerBtn}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleDiscardRecording}
-                      disabled={recorderStatus === 'broadcasting' || isTestingOnSpeaker}
-                      className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-50 ${
-                        theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>{t.discardVoiceBtn}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+                <button
+                  type="button"
+                  onClick={handleBroadcastVoice}
+                  disabled={recorderStatus === 'broadcasting'}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-cyan-500/20 disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+                >
+                  {recorderStatus === 'broadcasting' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>{t.broadcastingVoice}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>{t.stopAndBroadcastBtn}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Broadcast to Speaker Button */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-700/30">
-              <span className="text-[11px] opacity-70">
-                {t.zeroRetentionNotice}
-              </span>
-
-              <button
-                type="button"
-                onClick={handleBroadcastVoice}
-                disabled={recorderStatus === 'broadcasting'}
-                className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/20 disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
-              >
-                {recorderStatus === 'broadcasting' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                    <span>{t.broadcastingVoice}</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>{t.broadcastVoiceBtn}</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <p className="text-[11px] opacity-70 text-center sm:text-start">
+              {t.zeroRetentionNotice}
+            </p>
           </div>
         )}
 
@@ -570,4 +463,3 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     </section>
   );
 }
-

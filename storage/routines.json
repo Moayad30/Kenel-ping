@@ -18,24 +18,6 @@
     "order": 2
   },
   {
-    "id": "routine_pending_count",
-    "title": "Pending Devices / أجهزة متبقية",
-    "template": "يوجد {num} أجهزة لم يتم البدء بها بعد.",
-    "default_value": "10",
-    "icon": "Clock",
-    "color": "amber",
-    "order": 3
-  },
-  {
-    "id": "routine_1794133913425",
-    "title": "صباح الخير",
-    "template": "Completed {num} devices so far.",
-    "default_value": "10",
-    "icon": "CheckCircle2",
-    "color": "emerald",
-    "order": 5
-  },
-  {
     "id": "routine_1794133987371",
     "title": "انجاز",
     "template": "تم معالجة {num} جهاز إلى اليوم  ، كيرنال تك مركز الإنجاز!",

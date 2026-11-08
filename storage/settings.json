@@ -1,11 +1,11 @@
 {
-  "spam_cooldown_enabled": true,
+  "spam_cooldown_enabled": false,
   "cooldown_seconds": 15,
   "pre_chime_enabled": true,
   "chime_tone": "bell",
   "chime_volume": 75,
   "bluetooth_wakeup_enabled": true,
-  "server_volume": 51,
+  "server_volume": 59,
   "bluetooth_speaker_mac": null,
   "bluetooth_speaker_name": null,
   "tts_voice_ar": "ar-SA-HamedNeural",

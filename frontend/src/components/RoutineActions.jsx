@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Cpu, CheckCircle2, Clock, Search, Laptop, AlertCircle, Plus,
-  Trash2, Edit2, Play, Volume2, X, RefreshCw, Layers
+  Laptop, Plus, Trash2, Edit2, Volume2, X, RefreshCw, Activity, Clock
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
+import IconPicker, { renderAppIcon } from './IconPicker';
 
-const ICON_MAP = {
-  Cpu, CheckCircle2, Clock, Search, Laptop, AlertCircle, Layers
-};
-
-export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }) {
+export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, isSpeaking = false }) {
   const { theme, t } = useThemeLang();
 
   const [routines, setRoutines] = useState([]);
@@ -20,6 +16,7 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
   // Modal State for Add / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState(null);
+  const [templateToDelete, setTemplateToDelete] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     template: 'Where is device #{num}?',
@@ -62,7 +59,7 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
   };
 
   const handleSpeak = async (routine) => {
-    if (cooldownRemaining > 0 || submittingId) return;
+    if (isSpeaking || cooldownRemaining > 0 || submittingId) return;
     setSubmittingId(routine.id);
 
     const val = values[routine.id] !== undefined ? values[routine.id] : routine.default_value || '1';
@@ -97,10 +94,10 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
     setEditingRoutine(null);
     setFormData({
       title: '',
-      template: 'Completed {num} devices so far.',
+      template: 'Where is device #{num}?',
       default_value: '10',
-      icon: 'CheckCircle2',
-      color: 'emerald'
+      icon: 'Search',
+      color: 'cyan'
     });
     setIsModalOpen(true);
   };
@@ -117,15 +114,17 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (routineId) => {
-    if (!window.confirm(t.deleteSnippetConfirm || 'Delete this routine template?')) return;
+  const handleConfirmDelete = async () => {
+    if (!templateToDelete) return;
     try {
-      const res = await fetch(`/api/routines/${routineId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/routines/${templateToDelete.id}`, { method: 'DELETE' });
       if (res.ok) {
-        setRoutines((prev) => prev.filter((r) => r.id !== routineId));
+        setRoutines((prev) => prev.filter((r) => r.id !== templateToDelete.id));
       }
     } catch (err) {
       console.error('Error deleting routine:', err);
+    } finally {
+      setTemplateToDelete(null);
     }
   };
 
@@ -134,7 +133,6 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
     if (!formData.template.trim()) return;
 
     if (editingRoutine) {
-      // Update
       try {
         const res = await fetch(`/api/routines/${editingRoutine.id}`, {
           method: 'PUT',
@@ -153,7 +151,6 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
         console.error('Error updating routine:', err);
       }
     } else {
-      // Create
       const newId = `routine_${Date.now()}`;
       try {
         const res = await fetch('/api/routines', {
@@ -177,153 +174,205 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
     }
   };
 
+  const isActionBlocked = isSpeaking || cooldownRemaining > 0;
+
   return (
-    <section className={`border rounded-3xl p-6 sm:p-7 shadow-xl mb-8 transition-all ${
-      theme === 'dark' ? 'bg-[#0B132B]/80 border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
+    <section className={`border rounded-3xl p-5 sm:p-6 shadow-xl transition-all h-full flex flex-col justify-between ${
+      theme === 'dark' ? 'bg-[#0B132B]/85 border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
     }`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-700/30 mb-6">
-        <div className="flex items-center gap-3">
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${
-            theme === 'dark' ? 'bg-[#00D2FF]/10 border-[#00D2FF]/30 text-[#00D2FF]' : 'bg-sky-50 border-sky-200 text-sky-600'
-          }`}>
-            <Laptop className="w-5 h-5" />
+      <div>
+        <div className="flex items-center justify-between gap-3 pb-3.5 border-b border-slate-700/30 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-2xl flex items-center justify-center border ${
+              theme === 'dark' ? 'bg-[#00D2FF]/10 border-[#00D2FF]/30 text-[#00D2FF]' : 'bg-sky-50 border-sky-200 text-sky-600'
+            }`}>
+              <Laptop className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className={`font-bold text-sm sm:text-base ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                {t.routinesTitle}
+              </h2>
+              <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                {t.routinesSubtitle}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className={`font-bold text-base ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              {t.routinesTitle}
-            </h2>
-            <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-              {t.routinesSubtitle}
-            </p>
-          </div>
+
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black shadow-md shadow-cyan-500/20 transition-all hover:scale-105 active:scale-95 shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t.addRoutineBtn}</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black shadow-md shadow-cyan-500/20 transition-all hover:scale-105 active:scale-95 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t.addRoutineBtn}</span>
-        </button>
+        {/* Routine Cards Grid (Compact, Sleek, and Elegant) */}
+        {loading ? (
+          <div className="py-8 text-center text-xs opacity-60 flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+            <span>Loading templates...</span>
+          </div>
+        ) : routines.length === 0 ? (
+          <div className="py-8 text-center text-xs opacity-60">
+            No templates configured yet.
+          </div>
+        ) : (
+          <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+            {routines.map((routine) => {
+              const currentVal = values[routine.id] !== undefined ? values[routine.id] : routine.default_value || '1';
+              const previewText = routine.template.replace('{num}', currentVal).replace('{x}', currentVal);
+              const isSubmittingThis = submittingId === routine.id;
+
+              return (
+                <div
+                  key={routine.id}
+                  className={`p-3 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                    theme === 'dark'
+                      ? 'bg-[#070C1B]/80 border-[#1F3152] hover:border-[#00D2FF]/40'
+                      : 'bg-slate-50 border-slate-200 hover:border-sky-300'
+                  }`}
+                >
+                  {/* Left: Icon, Title, and Preview */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                        {renderAppIcon(routine.icon || 'Search', { className: 'w-3 h-3' })}
+                      </div>
+                      <span className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>
+                        {routine.title || previewText}
+                      </span>
+                      <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(routine)}
+                          title={t.editRoutineBtn}
+                          className="p-1 rounded text-slate-400 hover:text-cyan-400 transition-colors"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTemplateToDelete(routine)}
+                          title={t.deleteRoutineBtn}
+                          className="p-1 rounded text-slate-400 hover:text-rose-400 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className={`text-[11px] truncate leading-tight opacity-75 ${
+                      theme === 'dark' ? 'text-cyan-300' : 'text-sky-700'
+                    }`}>
+                      "{previewText}"
+                    </p>
+                  </div>
+
+                  {/* Right: Stepper and Compact Speak Button */}
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                    {/* Stepper */}
+                    <div className="flex items-center bg-slate-900/70 p-0.5 rounded-xl border border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => handleStep(routine.id, -1)}
+                        className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center transition-all"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="text"
+                        value={currentVal}
+                        onChange={(e) => handleValueChange(routine.id, e.target.value)}
+                        className="w-10 text-center font-mono font-bold text-xs bg-transparent text-cyan-400 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleStep(routine.id, 1)}
+                        className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center transition-all"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Speak Button (Guarded against repeated clicks while speaking or cooldown) */}
+                    <button
+                      type="button"
+                      onClick={() => handleSpeak(routine)}
+                      disabled={isSubmittingThis || isActionBlocked}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isActionBlocked
+                          ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                          : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black shadow-cyan-500/20 hover:scale-105 active:scale-95'
+                      }`}
+                    >
+                      {isSubmittingThis ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : isSpeaking ? (
+                        <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
+                      ) : cooldownRemaining > 0 ? (
+                        <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>
+                        {isSpeaking
+                          ? t.speakingNowBtn
+                          : cooldownRemaining > 0
+                          ? `${cooldownRemaining}s`
+                          : t.speakRoutineBtn}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Routine Cards Grid */}
-      {loading ? (
-        <div className="py-8 text-center text-xs opacity-60 flex items-center justify-center gap-2">
-          <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-          <span>Loading routine templates...</span>
-        </div>
-      ) : routines.length === 0 ? (
-        <div className="py-8 text-center text-xs opacity-60">
-          No routine templates configured yet.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {routines.map((routine) => {
-            const IconComp = ICON_MAP[routine.icon] || Cpu;
-            const currentVal = values[routine.id] !== undefined ? values[routine.id] : routine.default_value || '1';
-            const previewText = routine.template.replace('{num}', currentVal).replace('{x}', currentVal);
-
-            return (
-              <div
-                key={routine.id}
-                className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                  theme === 'dark'
-                    ? 'bg-[#070C1B]/80 border-[#1F3152] hover:border-[#00D2FF]/40'
-                    : 'bg-slate-50 border-slate-200 hover:border-sky-300'
+      {/* Confirmation Modal for Template Deletion */}
+      {templateToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl transition-all ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <h3 className="font-bold text-sm text-rose-500 mb-2">
+              {t.confirmDeleteTemplateTitle}
+            </h3>
+            <p className="text-xs opacity-80 mb-3">
+              {t.confirmDeleteTemplateDesc}
+            </p>
+            <div className="p-3 rounded-xl border bg-slate-900/50 border-slate-700 text-xs font-bold text-cyan-300 mb-4 flex items-center gap-2">
+              {renderAppIcon(templateToDelete.icon || 'Search', { className: 'w-4 h-4 shrink-0 text-cyan-400' })}
+              <span className="truncate">{templateToDelete.title || templateToDelete.template}</span>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setTemplateToDelete(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold ${
+                  theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-700'
                 }`}
               >
-                {/* Top Row: Icon + Title + Edit/Delete */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-                      <IconComp className="w-4 h-4" />
-                    </div>
-                    <span className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>
-                      {routine.title || previewText}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(routine)}
-                      title={t.editRoutineBtn}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(routine.id)}
-                      title={t.deleteRoutineBtn}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Live Speech Preview Bubble */}
-                <div className={`p-2.5 rounded-xl border text-xs font-semibold leading-relaxed ${
-                  theme === 'dark' ? 'bg-[#0E1B38]/60 border-[#1F3152] text-cyan-300' : 'bg-white border-slate-200 text-sky-800'
-                }`}>
-                  <span className="opacity-60 text-[10px] block mb-0.5 font-normal">{t.liveSpeechPreview}</span>
-                  "{previewText}"
-                </div>
-
-                {/* Bottom Row: Number Stepper + Broadcast Button */}
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  {/* Stepper Controls */}
-                  <div className="flex items-center gap-1 bg-slate-900/60 p-1 rounded-xl border border-slate-700/50">
-                    <button
-                      type="button"
-                      onClick={() => handleStep(routine.id, -1)}
-                      className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center transition-all"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="text"
-                      value={currentVal}
-                      onChange={(e) => handleValueChange(routine.id, e.target.value)}
-                      className="w-14 text-center font-mono font-bold text-xs bg-transparent text-cyan-400 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleStep(routine.id, 1)}
-                      className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center transition-all"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  {/* Broadcast Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleSpeak(routine)}
-                    disabled={submittingId === routine.id || cooldownRemaining > 0}
-                    className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black shadow-md shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
-                  >
-                    {submittingId === routine.id ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
-                    )}
-                    <span>{t.speakRoutineBtn}</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/30"
+              >
+                {t.confirmDeleteBtn}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Add / Edit Routine Modal */}
+      {/* Add / Edit Routine Modal with Full Icon Picker */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
           <div className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl transition-all ${
             theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152] text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
@@ -340,7 +389,7 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveModal} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-semibold mb-1 opacity-80">
                   {t.routineTitleLabel}
@@ -349,9 +398,9 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder={t.routineTitlePlaceholder}
-                  className={`w-full p-2.5 rounded-xl border focus:outline-none ${
-                    theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white' : 'bg-slate-50 border-slate-200'
+                  placeholder="e.g. Locate Device"
+                  className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
+                    theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                   }`}
                 />
               </div>
@@ -360,48 +409,60 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0 }
                 <label className="block font-semibold mb-1 opacity-80">
                   {t.routineTemplateLabel}
                 </label>
-                <textarea
-                  rows={3}
+                <input
+                  type="text"
+                  required
                   value={formData.template}
                   onChange={(e) => setFormData({ ...formData, template: e.target.value })}
                   placeholder="Where is device #{num}?"
-                  required
-                  className={`w-full p-2.5 rounded-xl border focus:outline-none ${
-                    theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white' : 'bg-slate-50 border-slate-200'
+                  className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
+                    theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                   }`}
                 />
-                <span className="text-[10px] opacity-60 block mt-1">
-                  {t.routineHelpNum}
-                </span>
               </div>
 
               <div>
                 <label className="block font-semibold mb-1 opacity-80">
-                  {t.routineDefaultValueLabel}
+                  {t.routineDefaultValueLabel || 'Default Number:'}
                 </label>
                 <input
-                  type="text"
+                  type="number"
+                  min="0"
                   value={formData.default_value}
                   onChange={(e) => setFormData({ ...formData, default_value: e.target.value })}
-                  className={`w-full p-2.5 rounded-xl border focus:outline-none font-mono ${
-                    theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white' : 'bg-slate-50 border-slate-200'
+                  className={`w-full border rounded-2xl px-3.5 py-2 text-xs font-mono focus:outline-none ${
+                    theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
                   }`}
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-700/30">
+              {/* Full Icon Picker for Everyone */}
+              <div>
+                <label className="block font-semibold mb-1.5 opacity-80">
+                  {t.selectIconLabel}
+                </label>
+                <IconPicker
+                  selectedIcon={formData.icon || 'Search'}
+                  onSelectIcon={(icon) => setFormData({ ...formData, icon })}
+                  theme={theme}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-700/30">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white"
+                  className={`px-4 py-2 rounded-2xl font-bold ${
+                    theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-700'
+                  }`}
                 >
                   {t.cancel}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black shadow-md shadow-cyan-500/20"
+                  className="px-5 py-2 rounded-2xl bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20"
                 >
-                  {t.saveRoutineBtn}
+                  {t.saveChanges}
                 </button>
               </div>
             </form>

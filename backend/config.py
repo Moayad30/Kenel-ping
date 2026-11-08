@@ -90,6 +90,7 @@ class RoutineModel(BaseModel):
 class SnippetModel(BaseModel):
     id: str
     text: str  # e.g. "Where is device #"
+    icon: Optional[str] = "Tag"
     order: Optional[int] = 0
 
 def load_settings() -> SettingsModel:

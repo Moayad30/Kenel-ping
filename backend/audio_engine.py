@@ -373,18 +373,26 @@ class AudioEngine:
         await self.broadcast_state()
         return volume
 
-    def check_cooldown(self) -> tuple[bool, int]:
+    def check_can_speak(self) -> tuple[bool, int, str]:
+        """
+        Guards against spamming or overlapping speech requests.
+        Blocks requests if another announcement is actively speaking,
+        or if the cooldown timer is still counting down.
+        """
+        if self.status == "speaking" or self.current_item is not None:
+            return False, 0, "Another announcement is currently speaking. Please wait until it finishes."
+
         settings = load_settings()
-        if not settings.spam_cooldown_enabled:
-            return True, 0
-        if self.last_enqueued_time <= 0:
-            return True, 0
-        now = time.time()
-        elapsed = now - self.last_enqueued_time
-        remaining = int(settings.cooldown_seconds - elapsed)
-        if remaining > 0:
-            return False, remaining
-        return True, 0
+        if settings.spam_cooldown_enabled and self.last_enqueued_time > 0:
+            elapsed = time.time() - self.last_enqueued_time
+            remaining = int(settings.cooldown_seconds - elapsed)
+            if remaining > 0:
+                return False, remaining, f"Please wait {remaining}s before sending another announcement"
+        return True, 0, ""
+
+    def check_cooldown(self) -> tuple[bool, int]:
+        can_proceed, remaining, _ = self.check_can_speak()
+        return can_proceed, remaining
 
     async def play_audio_file(self, file_path: Path, volume: Optional[int] = None):
         if not file_path.exists():
@@ -565,17 +573,6 @@ class AudioEngine:
 
         return {"id": item_id, "status": "broadcasted"}
 
-    async def test_voice_recording_on_speaker(self, file_path: Path) -> dict:
-        """Plays voice recording on the server speaker for preview, then immediately deletes it."""
-        try:
-            await self.play_audio_file(file_path)
-            return {"success": True, "message": "Voice test played on speaker"}
-        finally:
-            if file_path.exists():
-                try:
-                    file_path.unlink()
-                except Exception:
-                    pass
 
     async def _queue_worker(self):
         while True:

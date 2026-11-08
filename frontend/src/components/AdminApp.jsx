@@ -8,6 +8,7 @@ import {
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import AdminVoiceRecorder from './AdminVoiceRecorder';
 import PublicWorkspace from './PublicWorkspace';
+import IconPicker, { renderAppIcon } from './IconPicker';
 
 export default function AdminApp() {
   const { theme, toggleTheme, lang, toggleLang, t } = useThemeLang();
@@ -1498,6 +1499,16 @@ export default function AdminApp() {
                       )}
                     </div>
 
+                    {/* Icon Selection */}
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5">{t.selectIconLabel}</label>
+                      <IconPicker
+                        selectedIcon={presetForm.icon || 'Volume2'}
+                        onSelectIcon={(icon) => setPresetForm({ ...presetForm, icon })}
+                        theme={theme}
+                      />
+                    </div>
+
                     <div className="flex justify-end gap-2.5 pt-2">
                       <button
                         type="button"
@@ -1578,6 +1589,16 @@ export default function AdminApp() {
                           </span>
                         </div>
                       )}
+                    </div>
+
+                    {/* Icon Selection */}
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5">{t.selectIconLabel}</label>
+                      <IconPicker
+                        selectedIcon={editingPreset.icon || 'Volume2'}
+                        onSelectIcon={(icon) => setEditingPreset({ ...editingPreset, icon })}
+                        theme={theme}
+                      />
                     </div>
 
                     <div className="flex justify-end gap-2.5 pt-2">

@@ -128,11 +128,11 @@ async def set_public_volume(payload: VolumeRequest):
 @app.post("/api/speak/preset/{preset_id}")
 async def speak_preset(preset_id: str, request: Request, lang: Optional[str] = Query(default=None)):
     """Triggers playback of a predefined announcement preset."""
-    can_proceed, remaining = audio_engine.check_cooldown()
+    can_proceed, remaining, msg = audio_engine.check_can_speak()
     if not can_proceed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Please wait {remaining}s before sending another announcement"
+            detail=msg
         )
 
     presets = load_presets()
@@ -184,11 +184,11 @@ async def speak_custom(payload: SpeakCustomRequest, request: Request):
             detail="Text exceeds 400 characters"
         )
 
-    can_proceed, remaining = audio_engine.check_cooldown()
+    can_proceed, remaining, msg = audio_engine.check_can_speak()
     if not can_proceed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Please wait {remaining}s before sending another announcement"
+            detail=msg
         )
 
     client_ip = request.client.host if request.client else "Local"
@@ -232,11 +232,11 @@ async def speak_device_or_person(payload: SpeakCallRequest, request: Request):
             detail="Target name required"
         )
 
-    can_proceed, remaining = audio_engine.check_cooldown()
+    can_proceed, remaining, msg = audio_engine.check_can_speak()
     if not can_proceed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Please wait {remaining}s before calling"
+            detail=msg
         )
 
     msg = payload.message.strip() if payload.message else ""
@@ -308,11 +308,11 @@ async def delete_routine(routine_id: str):
 @app.post("/api/routines/{routine_id}/speak")
 async def speak_routine(routine_id: str, payload: RoutineSpeakRequest, request: Request):
     """Triggers speech for a routine template with substituted value."""
-    can_proceed, remaining = audio_engine.check_cooldown()
+    can_proceed, remaining, msg = audio_engine.check_can_speak()
     if not can_proceed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Please wait {remaining}s before sending another announcement"
+            detail=msg
         )
 
     routines = load_routines()
@@ -691,27 +691,6 @@ async def admin_test_voice(payload: TestVoiceRequest, admin: dict = Depends(requ
         return {"success": True, "message": f"Voice test triggered for {payload.voice}", "voice": payload.voice}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS generation error: {str(e)}")
-
-@app.post("/api/admin/test-voice-recording")
-async def admin_test_voice_recording(file: UploadFile = File(...), admin: dict = Depends(require_admin)):
-    """Tests admin voice recording playback on speaker before final broadcast, then deletes it."""
-    ext = "webm"
-    if file.filename and "." in file.filename:
-        ext = file.filename.rsplit(".", 1)[-1]
-    filename = f"test_voice_{uuid.uuid4().hex[:8]}.{ext}"
-    temp_path = TEMP_DIR / filename
-    try:
-        content = await file.read()
-        with open(temp_path, "wb") as f:
-            f.write(content)
-        return await audio_engine.test_voice_recording_on_speaker(temp_path)
-    except Exception as e:
-        if temp_path.exists():
-            try:
-                temp_path.unlink()
-            except Exception:
-                pass
-        raise HTTPException(status_code=500, detail=f"Voice test error: {str(e)}")
 
 # ----------------- Static SPA Support for Production / Debian 13 -----------------
 from fastapi.staticfiles import StaticFiles
