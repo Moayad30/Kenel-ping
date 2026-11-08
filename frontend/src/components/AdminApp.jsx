@@ -3,7 +3,8 @@ import {
   Shield, Key, LogOut, ArrowRight, Settings, Sliders, Database,
   History, Volume2, Bell, Radio, Check, AlertCircle, RefreshCw,
   Plus, Trash2, Edit2, Play, VolumeX, Sparkles, ExternalLink, Activity,
-  Sun, Moon, Globe, Folder, FolderPlus, Tag, Layers, Mic, AlertTriangle
+  Sun, Moon, Globe, Folder, FolderPlus, Tag, Layers, Mic, AlertTriangle,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import AdminVoiceRecorder from './AdminVoiceRecorder';
@@ -80,6 +81,54 @@ export default function AdminApp() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsAddPresetOpen(false);
+        setEditingPreset(null);
+        setPresetToDelete(null);
+        setIsAddCategoryOpen(false);
+        setEditingCategory(null);
+        setCategoryToDelete(null);
+        setAuditToDelete(null);
+        setIsClearAuditModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Reorder Presets with instant state update and backend persistence
+  const handleMovePreset = async (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= presets.length) return;
+
+    const updated = [...presets];
+    const [moved] = updated.splice(index, 1);
+    updated.splice(newIndex, 0, moved);
+
+    setPresets(updated);
+
+    try {
+      const res = await fetch('/api/admin/presets/reorder', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ preset_ids: updated.map((p) => p.id) })
+      });
+      if (!res.ok) {
+        showToast(t.errorGeneric, 'error');
+        loadAdminData(token);
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+      loadAdminData(token);
+    }
   };
 
   const verifyToken = async (currentToken) => {
@@ -505,15 +554,19 @@ export default function AdminApp() {
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#070C1B] text-slate-100' : 'bg-[#F8FAFC] text-slate-800'} pb-16 transition-colors duration-200`}>
       
-      {/* Toast Alert */}
+      {/* Toast Alert - Centered horizontally across all devices and RTL/LTR */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-bounce text-sm font-semibold transition-all"
-             style={{
-               backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
-               borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444',
-               color: '#FFFFFF'
-             }}>
-          <span>{toast.message}</span>
+        <div className="fixed top-5 inset-x-0 z-50 flex justify-center pointer-events-none px-4">
+          <div
+            className="pointer-events-auto flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-fadeIn text-sm font-semibold transition-all max-w-lg text-center"
+            style={{
+              backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
+              borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444',
+              color: '#FFFFFF'
+            }}
+          >
+            <span>{toast.message}</span>
+          </div>
         </div>
       )}
 
@@ -1268,10 +1321,15 @@ export default function AdminApp() {
               theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
             }`}>
               <div>
-                <h3 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  {t.presetsAdminTitle}
-                </h3>
-                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                <div className="flex items-center gap-3">
+                  <h3 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    {t.presetsAdminTitle}
+                  </h3>
+                  <span className="px-3 py-1 rounded-xl text-xs font-mono font-bold bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/30">
+                    {t.totalPresetsCount} {presets.length}
+                  </span>
+                </div>
+                <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                   {t.presetsAdminDesc}
                 </p>
               </div>
@@ -1310,6 +1368,8 @@ export default function AdminApp() {
                     theme === 'dark' ? 'bg-[#121C33] text-slate-300 border-[#1F3152]' : 'bg-slate-50 text-slate-700 border-slate-200'
                   }`}>
                     <tr>
+                      <th className="py-3.5 px-3 text-center w-12">{t.presetNumCol}</th>
+                      <th className="py-3.5 px-3 text-center w-20">{t.presetOrderCol}</th>
                       <th className="py-3.5 px-4">{t.presetIdCol}</th>
                       <th className="py-3.5 px-4">{t.presetTitleCol}</th>
                       <th className="py-3.5 px-4">{t.presetCategoryCol}</th>
@@ -1319,13 +1379,42 @@ export default function AdminApp() {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${theme === 'dark' ? 'divide-[#1F3152] text-slate-300' : 'divide-slate-200 text-slate-700'}`}>
-                    {presets.map((preset) => {
+                    {presets.map((preset, index) => {
                       const title = preset.title || preset.title_ar || preset.title_en || preset.id;
                       const text = preset.text || preset.text_ar || preset.text_en || '';
                       const isUncat = !preset.category_id || preset.category_id === 'uncategorized';
 
                       return (
                         <tr key={preset.id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-[#121C33]/50' : 'hover:bg-slate-50'}`}>
+                          {/* Numbering */}
+                          <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-400">
+                            {index + 1}
+                          </td>
+
+                          {/* Reordering */}
+                          <td className="py-3.5 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleMovePreset(index, -1)}
+                                disabled={index === 0}
+                                title={t.moveUpBtn}
+                                className="p-1 rounded-lg border border-slate-700/40 hover:bg-slate-700/50 text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMovePreset(index, 1)}
+                                disabled={index === presets.length - 1}
+                                title={t.moveDownBtn}
+                                className="p-1 rounded-lg border border-slate-700/40 hover:bg-slate-700/50 text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+
                           <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{preset.id}</td>
                           <td className="py-3.5 px-4 font-bold">{title}</td>
                           <td className="py-3.5 px-4">

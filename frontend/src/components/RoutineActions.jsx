@@ -29,6 +29,18 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, 
     fetchRoutines();
   }, []);
 
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+        setTemplateToDelete(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const fetchRoutines = async () => {
     try {
       const res = await fetch('/api/routines');
@@ -229,60 +241,55 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, 
               return (
                 <div
                   key={routine.id}
-                  className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                  className={`p-3 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
                     theme === 'dark'
-                      ? 'bg-[#070C1B]/85 border-[#1F3152] hover:border-[#00D2FF]/40'
+                      ? 'bg-[#070C1B]/80 border-[#1F3152] hover:border-[#00D2FF]/40'
                       : 'bg-slate-50 border-slate-200 hover:border-sky-300'
                   }`}
                 >
-                  {/* Top Row: Icon, Title, and Action Buttons */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                  {/* Left: Icon, Title, Actions, and Preview */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
                       <div className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-                        {renderAppIcon(routine.icon || 'Search', { className: 'w-3.5 h-3.5' })}
+                        {renderAppIcon(routine.icon || 'Search', { className: 'w-3 h-3' })}
                       </div>
-                      <span className={`text-xs sm:text-sm font-black truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                        {routine.title || t.routinesTitle}
+                      <span className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>
+                        {routine.title || previewText}
                       </span>
+                      <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(routine)}
+                          title={t.editRoutineBtn}
+                          className="p-1 rounded text-slate-400 hover:text-cyan-400 transition-colors"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTemplateToDelete(routine)}
+                          title={t.deleteRoutineBtn}
+                          className="p-1 rounded text-slate-400 hover:text-rose-400 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(routine)}
-                        title={t.editRoutineBtn}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTemplateToDelete(routine)}
-                        title={t.deleteRoutineBtn}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <p className={`text-xs font-normal leading-relaxed break-words whitespace-normal opacity-85 ${
+                      theme === 'dark' ? 'text-cyan-300' : 'text-sky-700'
+                    }`}>
+                      "{previewText}"
+                    </p>
                   </div>
 
-                  {/* Middle: Full Spoken Text with Word Wrap and Clear Legible Font */}
-                  <div className={`p-2.5 rounded-xl border text-xs sm:text-sm font-semibold leading-relaxed break-words whitespace-normal ${
-                    theme === 'dark' 
-                      ? 'bg-[#0E1B38]/60 border-[#1F3152] text-cyan-200' 
-                      : 'bg-white border-slate-200 text-sky-900'
-                  }`}>
-                    "{previewText}"
-                  </div>
-
-                  {/* Bottom Row: Stepper and Compact Speak Button */}
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/20">
+                  {/* Right: Stepper and Compact Speak Button */}
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                     {/* Stepper */}
                     <div className="flex items-center bg-slate-900/70 p-0.5 rounded-xl border border-slate-700/60">
                       <button
                         type="button"
                         onClick={() => handleStep(routine.id, -1)}
-                        className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center transition-all"
+                        className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center transition-all"
                       >
                         -
                       </button>
@@ -290,12 +297,12 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, 
                         type="text"
                         value={currentVal}
                         onChange={(e) => handleValueChange(routine.id, e.target.value)}
-                        className="w-12 text-center font-mono font-bold text-xs bg-transparent text-cyan-400 focus:outline-none"
+                        className="w-10 text-center font-mono font-bold text-xs bg-transparent text-cyan-400 focus:outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => handleStep(routine.id, 1)}
-                        className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center transition-all"
+                        className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center transition-all"
                       >
                         +
                       </button>
@@ -306,7 +313,7 @@ export default function RoutineActions({ onRoutineSpoke, cooldownRemaining = 0, 
                       type="button"
                       onClick={() => handleSpeak(routine)}
                       disabled={isSubmittingThis || isActionBlocked}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         isActionBlocked
                           ? 'bg-slate-800 text-slate-400 border border-slate-700'
                           : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black shadow-cyan-500/20 hover:scale-105 active:scale-95'

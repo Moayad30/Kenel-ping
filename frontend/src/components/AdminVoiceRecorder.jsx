@@ -275,50 +275,23 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         </div>
       </div>
 
-      {/* Mobile HTTPS Insecure Origin Warning Card */}
-      {isInsecureNetworkOrigin && (
-        <div className="mb-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs shadow-lg shadow-amber-500/5">
-          <div className="flex items-start gap-3 mb-3">
-            <Lock className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
-            <div className="space-y-1.5 flex-1">
-              <p className="font-bold text-sm text-amber-300">
-                {t.mobileInsecureTitle}
-              </p>
-              <p className="opacity-90 leading-relaxed">
-                {t.mobileInsecureDesc}
-              </p>
-              <p className="text-[11px] opacity-75 font-mono pt-1">
-                {t.mobileFlagHint}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-500/20">
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = window.location.href.replace(/^http:/, 'https:');
-              }}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-cyan-500 hover:from-amber-400 hover:to-cyan-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-md transition-all hover:scale-105 active:scale-95"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>{t.switchToHttpsBtn}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Persistent Microphone Blocked Helper Card (for secure contexts when blocked) */}
-      {micPermissionDenied && !isInsecureNetworkOrigin && (
+      {/* Persistent Microphone Blocked Helper Card */}
+      {micPermissionDenied && (
         <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs shadow-lg shadow-rose-500/10">
           <div className="flex items-start gap-3 mb-3">
             <AlertCircle className="w-5 h-5 shrink-0 text-rose-400 mt-0.5" />
-            <div>
-              <p className="font-bold text-sm text-rose-200 mb-1">{t.micBlockedTitle}</p>
+            <div className="space-y-1.5 flex-1">
+              <p className="font-bold text-sm text-rose-200">{t.micBlockedTitle}</p>
               <ul className="space-y-1 text-xs opacity-90 list-disc list-inside">
                 <li>{t.micBlockedStep1}</li>
                 <li>{t.micBlockedStep2}</li>
                 <li>{t.micBlockedStep3}</li>
               </ul>
+              {isInsecureNetworkOrigin && (
+                <div className="pt-2 border-t border-rose-500/30 text-rose-200/90 text-[11px]">
+                  <p className="font-semibold mb-0.5">{t.mobileFlagHint}</p>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex justify-end">

@@ -29,9 +29,8 @@ NODE_OPTIONS="--dns-result-order=ipv4first" npm run dev &
 
 echo ""
 echo "=========================================================="
-echo "  ✅ Public Member Workspace: https://localhost:5173/ (or http://localhost:5173)"
-echo "  🔒 Admin Control Center:    https://localhost:5173/admin"
-echo "  📱 Mobile Access (HTTPS):   https://<SERVER_IP>:5173/admin"
+echo "  ✅ Public Member Workspace: http://localhost:5173/"
+echo "  🔒 Admin Control Center:    http://localhost:5173/admin"
 echo "  ⚡ Interactive API Docs:    http://localhost:8000/docs"
 echo "=========================================================="
 echo "Press Ctrl+C to stop all servers at any time."

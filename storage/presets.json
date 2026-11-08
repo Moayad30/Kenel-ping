@@ -1,18 +1,5 @@
 [
   {
-    "id": "standup_now",
-    "category_id": "meetings",
-    "category": "اجتماعات وتنسيق",
-    "title": "بدء الستاند أب الصباحي",
-    "title_ar": "بدء الستاند أب الصباحي",
-    "title_en": "Morning Standup",
-    "text": "يا شباب، حان موعد الستاند أب الصباحي في قاعة الاجتماعات.",
-    "text_ar": "يا شباب، حان موعد الستاند أب الصباحي في قاعة الاجتماعات.",
-    "text_en": "Attention team, morning standup meeting is starting now in the conference room.",
-    "icon": "Users",
-    "color": "cyan"
-  },
-  {
     "id": "sprint_planning",
     "category_id": "meetings",
     "category": "اجتماعات وتنسيق",
@@ -37,6 +24,19 @@
     "text_en": "It's time for our weekly retrospective, join us in the main hall.",
     "icon": "RotateCcw",
     "color": "sky"
+  },
+  {
+    "id": "standup_now",
+    "category_id": "meetings",
+    "category": "اجتماعات وتنسيق",
+    "title": "بدء الستاند أب الصباحي",
+    "title_ar": "بدء الستاند أب الصباحي",
+    "title_en": "Morning Standup",
+    "text": "يا شباب، حان موعد الستاند أب الصباحي في قاعة الاجتماعات.",
+    "text_ar": "يا شباب، حان موعد الستاند أب الصباحي في قاعة الاجتماعات.",
+    "text_en": "Attention team, morning standup meeting is starting now in the conference room.",
+    "icon": "Users",
+    "color": "cyan"
   },
   {
     "id": "client_call",

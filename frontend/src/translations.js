@@ -322,7 +322,7 @@ export const translations = {
     presetsCount: "presets ready for instant broadcast",
 
     // Presets Grid
-    presetsCachedNote: "⚡ Pre-cached offline on server for instantaneous sub-second playback.",
+    presetsCachedNote: "Pre-cached offline on server for instantaneous sub-second playback.",
     mobileInsecureTitle: "Mobile Microphone Security Notice (HTTPS Required)",
     mobileInsecureDesc: "Mobile browsers (Chrome / Safari) strictly block microphone access over plain HTTP on local network IPs. Please switch to the secure HTTPS link:",
     switchToHttpsBtn: "Switch to Secure HTTPS 🔒",
@@ -455,6 +455,11 @@ export const translations = {
     presetsAdminDesc: "Pre-generated zero-latency audio files with auto engine detection",
     rebuildAllCacheBtn: "Rebuild All Audio Caches",
     addPresetBtn: "Add New Preset",
+    totalPresetsCount: "Total Presets:",
+    presetNumCol: "#",
+    presetOrderCol: "Order",
+    moveUpBtn: "Move Up",
+    moveDownBtn: "Move Down",
     presetIdCol: "Preset ID",
     presetTitleCol: "Title",
     presetCategoryCol: "Category",

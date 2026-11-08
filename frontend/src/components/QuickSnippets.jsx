@@ -14,6 +14,18 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
     fetchSnippets();
   }, []);
 
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+        setSnippetToDelete(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const fetchSnippets = async () => {
     try {
       const res = await fetch('/api/snippets');

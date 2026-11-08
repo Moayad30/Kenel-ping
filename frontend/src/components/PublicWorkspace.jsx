@@ -119,6 +119,18 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsAudioModalOpen(false);
+        setIsCategoryModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -366,15 +378,19 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#070C1B] text-slate-100' : 'bg-[#F8FAFC] text-slate-800'} pb-16 transition-colors duration-200`}>
-      {/* Toast Alert */}
+      {/* Toast Alert - Centered horizontally across all devices and RTL/LTR */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-bounce text-sm font-semibold transition-all"
-             style={{
-               backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
-               borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444',
-               color: '#FFFFFF'
-             }}>
-          <span>{toast.message}</span>
+        <div className="fixed top-5 inset-x-0 z-50 flex justify-center pointer-events-none px-4">
+          <div
+            className="pointer-events-auto flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-fadeIn text-sm font-semibold transition-all max-w-lg text-center"
+            style={{
+              backgroundColor: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
+              borderColor: toast.type === 'success' ? '#10B981' : toast.type === 'warning' ? '#F59E0B' : '#EF4444',
+              color: '#FFFFFF'
+            }}
+          >
+            <span>{toast.message}</span>
+          </div>
         </div>
       )}
 
@@ -740,10 +756,10 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                   {t.quickAlertsTitle}
                 </h2>
               </div>
-              <p className={`text-xs mt-1 flex items-center gap-1.5 font-medium ${
-                theme === 'dark' ? 'text-amber-400/90' : 'text-amber-700'
+              <p className={`text-xs mt-1 flex items-center gap-1.5 font-normal ${
+                theme === 'dark' ? 'text-sky-300/80' : 'text-sky-700'
               }`}>
-                <Zap className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                <Zap className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
                 <span>{t.presetsCachedNote}</span>
               </p>
             </div>

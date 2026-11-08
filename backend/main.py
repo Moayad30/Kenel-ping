@@ -72,6 +72,9 @@ class TashkeelRequest(BaseModel):
 class RoutineSpeakRequest(BaseModel):
     value: str = "1"
 
+class ReorderPresetsRequest(BaseModel):
+    preset_ids: List[str]
+
 class BluetoothReconnectRequest(BaseModel):
     mac: Optional[str] = None
 
@@ -527,6 +530,24 @@ async def admin_create_preset(preset: PresetModel, admin: dict = Depends(require
     asyncio.create_task(audio_engine.ensure_preset_cached(preset.id, text, detected_lang))
 
     return {"success": True, "preset": preset}
+
+@app.put("/api/admin/presets/reorder")
+async def admin_reorder_presets(payload: ReorderPresetsRequest, admin: dict = Depends(require_admin)):
+    presets = load_presets()
+    preset_map = {p.id: p for p in presets}
+
+    reordered = []
+    for pid in payload.preset_ids:
+        if pid in preset_map:
+            reordered.append(preset_map[pid])
+            del preset_map[pid]
+
+    for p in presets:
+        if p.id in preset_map:
+            reordered.append(p)
+
+    save_presets(reordered)
+    return {"success": True, "presets": reordered}
 
 @app.put("/api/admin/presets/{preset_id}")
 async def admin_update_preset(preset_id: str, updated: PresetModel, admin: dict = Depends(require_admin)):
