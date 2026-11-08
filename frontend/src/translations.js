@@ -35,6 +35,11 @@ export const translations = {
     presetsCount: "جملة متاحة للاستجابة الفورية",
 
     // Presets Grid
+    presetsCachedNote: "هذه الجمل مخزنة ومحملة محلياً (Pre-cached) لتوفير أسرع زمن استجابة ونطق فوري دون أي تأخير.",
+    mobileInsecureTitle: "تنبيه تسجيل الميكروفون على الجوال (يتطلب HTTPS)",
+    mobileInsecureDesc: "متصفحات الهواتف (مثل كروم وسفاري) تمنع طلب إذن الميكروفون برمجياً عبر الـ HTTP العادي على عناوين الـ IP المحلية. يرجى التبديل للرابط الآمن:",
+    switchToHttpsBtn: "التبديل إلى رابط HTTPS الآمن 🔒",
+    mobileFlagHint: "أو تفعيل عنوان الـ IP في كروم أندرويد عبر: chrome://flags/#unsafely-treat-insecure-origin-as-secure",
     quickAlertsTitle: "شبكة التنبيهات السريعة",
     quickAlertsSubtitle: "أوامر صوتية جاهزة بنقرة واحدة بدون تأخير",
     speakButton: "إذاعة النداء",
@@ -163,6 +168,11 @@ export const translations = {
     presetsAdminDesc: "إدارة الجمل الجاهزة مع اختيار اللغة التلقائي وتحديد كرت الصوت والمحرك المناسب",
     rebuildAllCacheBtn: "إعادة بناء أصوات الجمل",
     addPresetBtn: "إضافة جملة جديدة",
+    totalPresetsCount: "إجمالي الجمل:",
+    presetNumCol: "#",
+    presetOrderCol: "الترتيب",
+    moveUpBtn: "تحريك للأعلى",
+    moveDownBtn: "تحريك للأسفل",
     presetIdCol: "المعرف (ID)",
     presetTitleCol: "العنوان",
     presetCategoryCol: "التصنيف",
@@ -266,7 +276,7 @@ export const translations = {
 
     // Quick Snippets / Suggestions for Free Speech
     snippetsTitle: "اقتراحات سريعة:",
-    addSnippetBtn: "+ إضافة اقتراح",
+    addSnippetBtn: "إضافة اقتراح",
     snippetModalTitle: "إضافة اقتراح سريع جديد",
     snippetTextLabel: "نص الاقتراح:",
     snippetPlaceholder: "اكتب النص أو الكلمة المقترحة...",
@@ -312,6 +322,11 @@ export const translations = {
     presetsCount: "presets ready for instant broadcast",
 
     // Presets Grid
+    presetsCachedNote: "⚡ Pre-cached offline on server for instantaneous sub-second playback.",
+    mobileInsecureTitle: "Mobile Microphone Security Notice (HTTPS Required)",
+    mobileInsecureDesc: "Mobile browsers (Chrome / Safari) strictly block microphone access over plain HTTP on local network IPs. Please switch to the secure HTTPS link:",
+    switchToHttpsBtn: "Switch to Secure HTTPS 🔒",
+    mobileFlagHint: "Or allow this IP in Chrome Android via: chrome://flags/#unsafely-treat-insecure-origin-as-secure",
     quickAlertsTitle: "Quick Alert Presets",
     quickAlertsSubtitle: "Zero-latency audio commands ready at one click",
     speakButton: "Broadcast",
@@ -543,7 +558,7 @@ export const translations = {
 
     // Quick Snippets / Suggestions for Free Speech
     snippetsTitle: "Quick Suggestions:",
-    addSnippetBtn: "+ Add Snippet",
+    addSnippetBtn: "Add Snippet",
     snippetModalTitle: "Add New Quick Snippet",
     snippetTextLabel: "Snippet Text:",
     snippetPlaceholder: "Enter snippet word or phrase...",

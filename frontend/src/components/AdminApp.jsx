@@ -222,23 +222,6 @@ export default function AdminApp() {
     }
   };
 
-  const handleReconnectSpeaker = async () => {
-    setIsReconnectingSpeaker(true);
-    try {
-      const res = await fetch('/api/bluetooth/reconnect', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message || t.reconnectSuccess, 'success');
-      } else {
-        showToast(data.message || t.reconnectFailed, 'warning');
-      }
-    } catch {
-      showToast(t.errorNetwork, 'error');
-    } finally {
-      setIsReconnectingSpeaker(false);
-    }
-  };
-
   // Helper to detect language for live UI indicator
   const isArabicText = (text) => {
     const arCount = (text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
@@ -993,29 +976,6 @@ export default function AdminApp() {
                   </div>
                 </div>
               )}
-
-              {/* Remote Bluetooth Speaker Reconnect */}
-              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border ${
-                theme === 'dark' ? 'bg-[#121C33] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div>
-                  <h4 className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    {t.reconnectSpeakerTitle}
-                  </h4>
-                  <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {t.reconnectSpeakerDesc}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleReconnectSpeaker}
-                  disabled={isReconnectingSpeaker}
-                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/20 transition-all shrink-0 hover:scale-105 active:scale-95"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isReconnectingSpeaker ? 'animate-spin' : ''}`} />
-                  <span>{isReconnectingSpeaker ? t.reconnectingSpeaker : t.reconnectSpeakerBtn}</span>
-                </button>
-              </div>
 
               {/* Bluetooth Wake-up Ping */}
               <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${

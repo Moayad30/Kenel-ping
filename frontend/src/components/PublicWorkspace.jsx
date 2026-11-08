@@ -4,7 +4,7 @@ import {
   PhoneCall, Rocket, CheckCircle2, Snowflake, AlertTriangle, AlertCircle, ServerCrash,
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
-  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop
+  Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import RoutineActions from './RoutineActions';
@@ -448,19 +448,6 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 )}
               </button>
 
-              {/* Quick Remote Bluetooth Speaker Reconnect Button (Shown when speaker is not connected) */}
-              {!isSpeakerConnected && (
-                <button
-                  type="button"
-                  onClick={handleReconnectSpeaker}
-                  disabled={isReconnectingSpeaker}
-                  title={t.reconnectSpeakerTitle}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 shadow-sm transition-all hover:scale-105 active:scale-95 shrink-0"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isReconnectingSpeaker ? 'animate-spin' : ''}`} />
-                  <span>{isReconnectingSpeaker ? t.reconnectingSpeaker : t.reconnectSpeakerBtn}</span>
-                </button>
-              )}
 
               {/* Clickable Member Volume Badge */}
               <button
@@ -570,22 +557,11 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 </span>
               </div>
 
-              {/* Reconnect notice when speaker is disconnected */}
+              {/* Internal speaker notice when speaker is disconnected */}
               {!isSpeakerConnected && (
-                <div className="mt-3.5 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
-                    <p className="text-[11px] leading-relaxed">{t.speakerNoticeInternal}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleReconnectSpeaker}
-                    disabled={isReconnectingSpeaker}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shrink-0 shadow-md transition-all hover:scale-105 active:scale-95"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isReconnectingSpeaker ? 'animate-spin' : ''}`} />
-                    <span>{isReconnectingSpeaker ? t.reconnectingSpeaker : t.reconnectSpeakerBtn}</span>
-                  </button>
+                <div className="mt-3.5 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <p className="text-[11px] leading-relaxed">{t.speakerNoticeInternal}</p>
                 </div>
               )}
             </div>
@@ -756,14 +732,22 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
         {/* Presets Grid Section */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Activity className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
-              <h2 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                {t.quickAlertsTitle}
-              </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Activity className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
+                <h2 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {t.quickAlertsTitle}
+                </h2>
+              </div>
+              <p className={`text-xs mt-1 flex items-center gap-1.5 font-medium ${
+                theme === 'dark' ? 'text-amber-400/90' : 'text-amber-700'
+              }`}>
+                <Zap className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                <span>{t.presetsCachedNote}</span>
+              </p>
             </div>
-            <span className={`text-xs font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+            <span className={`text-xs font-mono shrink-0 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
               {filteredPresets.length} {t.presetsCount}
             </span>
           </div>

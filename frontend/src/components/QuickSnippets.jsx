@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Check, Tag } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
-import IconPicker, { renderAppIcon } from './IconPicker';
 
 export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
   const { theme, t } = useThemeLang();
@@ -9,8 +8,6 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
   const [snippets, setSnippets] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newText, setNewText] = useState('');
-  const [newIcon, setNewIcon] = useState('Tag');
-  const [showIconPicker, setShowIconPicker] = useState(false);
   const [snippetToDelete, setSnippetToDelete] = useState(null);
 
   useEffect(() => {
@@ -40,7 +37,6 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
         body: JSON.stringify({
           id: `snip_${Date.now()}`,
           text: newText.trim(),
-          icon: newIcon || 'Tag',
           order: snippets.length + 1
         })
       });
@@ -48,9 +44,7 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
         const created = await res.json();
         setSnippets((prev) => [...prev, created.snippet]);
         setNewText('');
-        setNewIcon('Tag');
         setIsAdding(false);
-        setShowIconPicker(false);
       }
     } catch (err) {
       console.error('Error adding snippet:', err);
@@ -86,66 +80,42 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
             onClick={() => setIsAdding(true)}
             className="text-[11px] font-bold px-2.5 py-1 rounded-xl border text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10 flex items-center gap-1 transition-all"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3.5 h-3.5" />
             <span>{t.addSnippetBtn}</span>
           </button>
         ) : (
-          <div className="w-full sm:w-auto">
-            <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setShowIconPicker(!showIconPicker)}
-                title={t.selectIconLabel}
-                className="p-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20"
-              >
-                {renderAppIcon(newIcon, { className: 'w-3.5 h-3.5' })}
-              </button>
+          <form onSubmit={handleAdd} className="flex items-center gap-1.5 w-full sm:w-auto">
+            <input
+              type="text"
+              autoFocus
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              placeholder={t.snippetPlaceholder}
+              className={`text-xs px-2.5 py-1 rounded-xl border focus:outline-none min-w-[150px] ${
+                theme === 'dark' ? 'bg-[#070C1B] border-cyan-500/50 text-white' : 'bg-white border-sky-400 text-slate-800'
+              }`}
+            />
 
-              <input
-                type="text"
-                autoFocus
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                placeholder={t.snippetPlaceholder}
-                className={`text-xs px-2.5 py-1 rounded-xl border focus:outline-none min-w-[150px] ${
-                  theme === 'dark' ? 'bg-[#070C1B] border-cyan-500/50 text-white' : 'bg-white border-sky-400 text-slate-800'
-                }`}
-              />
+            <button
+              type="submit"
+              className="p-1.5 rounded-xl bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-sm"
+              title={t.saveSnippetBtn}
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
 
-              <button
-                type="submit"
-                className="p-1.5 rounded-xl bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-sm"
-                title={t.saveSnippetBtn}
-              >
-                <Check className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setIsAdding(false); setNewText(''); setShowIconPicker(false); }}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </form>
-
-            {showIconPicker && (
-              <div className="mt-2 p-2 rounded-2xl border bg-slate-950/95 border-cyan-500/40 shadow-xl z-20">
-                <IconPicker
-                  selectedIcon={newIcon}
-                  onSelectIcon={(icon) => {
-                    setNewIcon(icon);
-                    setShowIconPicker(false);
-                  }}
-                  theme={theme}
-                />
-              </div>
-            )}
-          </div>
+            <button
+              type="button"
+              onClick={() => { setIsAdding(false); setNewText(''); }}
+              className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </form>
         )}
       </div>
 
-      {/* Horizontal Snippet Chips */}
+      {/* Pure text chips without icons as requested */}
       <div className="flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto p-1">
         {snippets.map((snip) => (
           <div
@@ -157,9 +127,6 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
                 : 'bg-slate-100 border-slate-200 text-slate-800 hover:border-sky-400 hover:text-sky-700'
             }`}
           >
-            <span className="text-cyan-400 shrink-0">
-              {renderAppIcon(snip.icon || 'Tag', { className: 'w-3 h-3' })}
-            </span>
             <span>{snip.text}</span>
             <button
               type="button"
@@ -188,9 +155,8 @@ export default function QuickSnippets({ onSelectSnippet, isSpeaking = false }) {
             <p className="text-xs opacity-80 mb-3">
               {t.confirmDeleteSnippetDesc}
             </p>
-            <div className="p-3 rounded-xl border bg-slate-900/50 border-slate-700 text-xs font-bold text-cyan-300 mb-4 flex items-center gap-2">
-              {renderAppIcon(snippetToDelete.icon || 'Tag', { className: 'w-3.5 h-3.5 shrink-0 text-cyan-400' })}
-              <span>"{snippetToDelete.text}"</span>
+            <div className="p-3 rounded-xl border bg-slate-900/50 border-slate-700 text-xs font-bold text-cyan-300 mb-4">
+              "{snippetToDelete.text}"
             </div>
             <div className="flex justify-end gap-2">
               <button

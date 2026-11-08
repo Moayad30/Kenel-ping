@@ -6,12 +6,6 @@
     "order": 1
   },
   {
-    "id": "snip_completed",
-    "text": "تم إنجاز ",
-    "icon": "Tag",
-    "order": 2
-  },
-  {
     "id": "snip_pending",
     "text": "يوجد أجهزة لم تبدأ: ",
     "icon": "Tag",

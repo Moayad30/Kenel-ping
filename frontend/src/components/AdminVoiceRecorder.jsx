@@ -1,12 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic, Square, Play, Pause, RotateCcw, Send, Radio, ShieldCheck,
-  AlertCircle, Loader2, RefreshCw, KeyRound
+  AlertCircle, Loader2, RefreshCw, KeyRound, Lock
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 
 export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
   const { theme, t } = useThemeLang();
+
+  // Network context check for mobile browser microphone security
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+  );
+  const isInsecureNetworkOrigin = typeof window !== 'undefined' && (
+    window.location.protocol === 'http:' && !isLocalhost
+  );
 
   // Recording lifecycle: 'idle' | 'recording' | 'paused' | 'stopped' | 'broadcasting'
   const [recorderStatus, setRecorderStatus] = useState('idle');
@@ -56,7 +65,11 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
     setRecordDuration(0);
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setErrorMessage("Microphone access is not supported by your browser or connection is not secure (requires HTTPS or localhost).");
+      if (isInsecureNetworkOrigin) {
+        setErrorMessage(t.mobileInsecureDesc);
+      } else {
+        setErrorMessage("Microphone access is not supported by your browser or connection is not secure (requires HTTPS or localhost).");
+      }
       setMicPermissionDenied(true);
       setIsRequestingMic(false);
       return;
@@ -262,8 +275,40 @@ export default function AdminVoiceRecorder({ token, onBroadcastSuccess }) {
         </div>
       </div>
 
-      {/* Persistent Microphone Blocked Helper Card */}
-      {micPermissionDenied && (
+      {/* Mobile HTTPS Insecure Origin Warning Card */}
+      {isInsecureNetworkOrigin && (
+        <div className="mb-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs shadow-lg shadow-amber-500/5">
+          <div className="flex items-start gap-3 mb-3">
+            <Lock className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+            <div className="space-y-1.5 flex-1">
+              <p className="font-bold text-sm text-amber-300">
+                {t.mobileInsecureTitle}
+              </p>
+              <p className="opacity-90 leading-relaxed">
+                {t.mobileInsecureDesc}
+              </p>
+              <p className="text-[11px] opacity-75 font-mono pt-1">
+                {t.mobileFlagHint}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-500/20">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = window.location.href.replace(/^http:/, 'https:');
+              }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-cyan-500 hover:from-amber-400 hover:to-cyan-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-md transition-all hover:scale-105 active:scale-95"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>{t.switchToHttpsBtn}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Persistent Microphone Blocked Helper Card (for secure contexts when blocked) */}
+      {micPermissionDenied && !isInsecureNetworkOrigin && (
         <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs shadow-lg shadow-rose-500/10">
           <div className="flex items-start gap-3 mb-3">
             <AlertCircle className="w-5 h-5 shrink-0 text-rose-400 mt-0.5" />

@@ -1,17 +1,8 @@
 [
   {
-    "id": "routine_locate_device",
-    "title": "Locate Device / مكان جهاز",
-    "template": "أين هو جهاز رقم {num}؟",
-    "default_value": "1",
-    "icon": "Search",
-    "color": "cyan",
-    "order": 1
-  },
-  {
     "id": "routine_completed_count",
     "title": "Completed Devices / إنجاز أجهزة",
-    "template": "تم إنجاز {num} جهاز إلى الآن{num}  نعم",
+    "template": "sddيييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييييي سيبسيبي            يييتم إنجاز {num} جهاز إلى الآن{num}  نعم",
     "default_value": "70",
     "icon": "CheckCircle2",
     "color": "emerald",
