@@ -196,7 +196,7 @@
 
 ### 🔹 2.4 إدارة الجمل الثابتة (Presets Management)
 - `GET /api/admin/presets`: استرجاع كافة الجمل الجاهزة.
-- `POST /api/admin/presets`: إضافة جملة جديدة وتوليد ملفاتها الصوتية مسبقاً.
+- `POST /api/admin/presets`: إضافة جملة جديدة وتوليد ملفاتها الصوتية مسبقاً (حقل `id` اختياري ويتم توليده تلقائياً كمعرّف ستاتيكي فريد في حال عدم تمريره).
 - `PUT /api/admin/presets/{id}`: تعديل بيانات جملة قائمة.
 - `DELETE /api/admin/presets/{id}`: حذف جملة وملفاتها الصوتية.
 - `POST /api/admin/presets/reorder`: إعادة ترتيب الجمل.

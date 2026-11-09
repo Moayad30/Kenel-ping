@@ -60,7 +60,7 @@ class CategoryModel(BaseModel):
     order: Optional[int] = 0
 
 class PresetModel(BaseModel):
-    id: str
+    id: Optional[str] = None
     category_id: Optional[str] = "uncategorized"
     category: Optional[str] = "Uncategorized"
     title: Optional[str] = None

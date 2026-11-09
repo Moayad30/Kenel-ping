@@ -58,7 +58,6 @@ export default function AdminApp() {
   const [isAddPresetOpen, setIsAddPresetOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState(null);
   const [presetForm, setPresetForm] = useState({
-    id: '',
     category_id: 'uncategorized',
     title: '',
     text: '',
@@ -406,14 +405,13 @@ export default function AdminApp() {
   // --- Preset CRUD Actions (Single Title & Single Text) ---
   const handleCreatePreset = async (e) => {
     e.preventDefault();
-    if (!presetForm.id.trim() || !presetForm.title.trim() || !presetForm.text.trim()) {
+    if (!presetForm.title.trim() || !presetForm.text.trim()) {
       showToast('Please fill all required fields', 'warning');
       return;
     }
 
     try {
       const payload = {
-        id: presetForm.id.trim(),
         category_id: presetForm.category_id || 'uncategorized',
         title: presetForm.title.trim(),
         title_ar: presetForm.title.trim(),
@@ -440,7 +438,6 @@ export default function AdminApp() {
         showToast('Preset created and audio cached', 'success');
         setIsAddPresetOpen(false);
         setPresetForm({
-          id: '',
           category_id: 'uncategorized',
           title: '',
           text: '',
@@ -1496,7 +1493,6 @@ export default function AdminApp() {
                   }`}>
                     <tr>
                       <th className="py-3.5 px-3 text-center w-12">{t.presetNumCol}</th>
-                      <th className="py-3.5 px-4">{t.presetIdCol}</th>
                       <th className="py-3.5 px-4">{t.presetTitleCol}</th>
                       <th className="py-3.5 px-4">{t.presetCategoryCol}</th>
                       <th className="py-3.5 px-4">{t.presetTextCol}</th>
@@ -1518,7 +1514,6 @@ export default function AdminApp() {
                             {index + 1}
                           </td>
 
-                          <td className="py-3.5 px-4 font-mono font-bold text-sky-500">{preset.id}</td>
                           <td className="py-3.5 px-4 font-bold">{title}</td>
                           <td className="py-3.5 px-4 font-bold text-xs">
                             <span className={isUncat ? 'text-amber-400' : 'text-[#00D2FF]'}>
@@ -1577,35 +1572,20 @@ export default function AdminApp() {
                 }`}>
                   <h3 className="font-bold text-base mb-4">{t.addPresetModalTitle}</h3>
                   <form onSubmit={handleCreatePreset} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">{t.presetIdCol}:</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. daily_sync"
-                          value={presetForm.id}
-                          onChange={(e) => setPresetForm({ ...presetForm, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
-                          className={`w-full border rounded-2xl px-3.5 py-2 text-xs font-mono focus:outline-none ${
-                            theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">{t.presetCategoryCol}:</label>
-                        <select
-                          value={presetForm.category_id}
-                          onChange={(e) => setPresetForm({ ...presetForm, category_id: e.target.value })}
-                          className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
-                            theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
-                          }`}
-                        >
-                          <option value="uncategorized">{t.uncategorized}</option>
-                          {categories.filter(c => c.id !== 'uncategorized').map((c) => (
-                            <option key={c.id} value={c.id}>{lang === 'en' ? c.name_en : c.name_ar}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1">{t.presetCategoryCol}:</label>
+                      <select
+                        value={presetForm.category_id}
+                        onChange={(e) => setPresetForm({ ...presetForm, category_id: e.target.value })}
+                        className={`w-full border rounded-2xl px-3.5 py-2 text-xs focus:outline-none ${
+                          theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152] text-white focus:border-[#00D2FF]' : 'bg-slate-50 border-slate-200 focus:border-sky-500'
+                        }`}
+                      >
+                        <option value="uncategorized">{t.uncategorized}</option>
+                        {categories.filter(c => c.id !== 'uncategorized').map((c) => (
+                          <option key={c.id} value={c.id}>{lang === 'en' ? c.name_en : c.name_ar}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Single Title Input Field */}
@@ -1686,7 +1666,7 @@ export default function AdminApp() {
                 <div className={`border rounded-3xl w-full max-w-lg p-6 shadow-2xl ${
                   theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152]' : 'bg-white border-slate-200 text-slate-900'
                 }`}>
-                  <h3 className="font-bold text-base mb-4">{t.editPresetModalTitle}: {editingPreset.id}</h3>
+                  <h3 className="font-bold text-base mb-4">{t.editPresetModalTitle}</h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold mb-1">{t.presetCategoryCol}:</label>

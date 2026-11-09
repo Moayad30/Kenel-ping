@@ -5,7 +5,7 @@ import {
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
   Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap, Square,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, ChevronsDown, ChevronsUp
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import RoutineActions from './RoutineActions';
@@ -17,6 +17,165 @@ const ICON_MAP = {
   Package, PartyPopper, ShieldAlert, WifiOff, Sparkles, Lock, Flame,
   Volume2, Folder
 };
+
+function PresetCardItem({
+  preset,
+  isExpanded,
+  onToggleExpand,
+  categories,
+  theme,
+  lang,
+  t,
+  onSpeak,
+  isSystemSpeaking,
+  cooldownRemaining
+}) {
+  const IconComponent = ICON_MAP[preset.icon] || Volume2;
+  const title = preset.title || preset.title_ar || preset.title_en || preset.id;
+  const text = preset.text || preset.text_ar || preset.text_en || '';
+
+  // Find category badge
+  let categoryBadge = t.uncategorized;
+  if (preset.category_id && preset.category_id !== 'uncategorized') {
+    const matchedCat = categories.find(c => c.id === preset.category_id || c.name_ar === preset.category);
+    if (matchedCat) {
+      categoryBadge = lang === 'en' ? (matchedCat.name_en || matchedCat.name_ar) : (matchedCat.name_ar || matchedCat.name_en);
+    } else if (preset.category) {
+      categoryBadge = preset.category;
+    }
+  }
+
+  // Ref to measure if text exceeds 2 lines in collapsed mode
+  const measureRef = useRef(null);
+  const [canExpand, setCanExpand] = useState(() => (text || '').length > 60 || (text || '').includes('\n'));
+
+  useEffect(() => {
+    const el = measureRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      // scrollHeight > clientHeight + 1 detects if 2-line clamp truncates text
+      const overflows = el.scrollHeight > el.clientHeight + 1;
+      setCanExpand(overflows);
+    };
+
+    checkOverflow();
+
+    const ro = new ResizeObserver(checkOverflow);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text]);
+
+  return (
+    <div
+      className={`group relative rounded-3xl p-5 flex flex-col justify-between transition-all duration-200 border ${
+        theme === 'dark'
+          ? 'bg-[#0B132B] hover:bg-[#121C33] border-[#1F3152] hover:border-[#00D2FF]/50 shadow-lg hover:shadow-[#00D2FF]/10'
+          : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-md'
+      } hover:-translate-y-0.5`}
+    >
+      <div>
+        {/* Header: Icon & Category Tag */}
+        <div className="flex items-center justify-between mb-3">
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors border ${
+            theme === 'dark'
+              ? 'bg-[#162238] group-hover:bg-[#00D2FF]/10 border-[#1F3152] group-hover:border-[#00D2FF]/40'
+              : 'bg-slate-100 group-hover:bg-sky-50 border-slate-200 group-hover:border-sky-200'
+          }`}>
+            <IconComponent className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
+          </div>
+          <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-xl ${
+            theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-600'
+          }`}>
+            {categoryBadge}
+          </span>
+        </div>
+
+        {/* Title with Expand Arrow Button (ONLY shown when text is actually long and truncated) */}
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <h3 className={`font-bold text-sm leading-snug transition-colors ${
+            theme === 'dark' ? 'text-white group-hover:text-[#00D2FF]' : 'text-slate-900 group-hover:text-sky-600'
+          }`}>
+            {title}
+          </h3>
+
+          {canExpand && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(preset.id);
+              }}
+              title={isExpanded ? t.collapsePresetText : t.expandPresetText}
+              className={`p-1 rounded-xl transition-all shrink-0 hover:scale-110 active:scale-95 ${
+                isExpanded
+                  ? 'bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/40'
+                  : theme === 'dark'
+                    ? 'bg-[#162238] hover:bg-[#1E2D4A] text-slate-400 hover:text-white border border-[#1F3152]'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200'
+              }`}
+            >
+              {isExpanded ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Spoken Text Container with Relative Positioning for Measurement Twin */}
+        <div className="relative">
+          {/* Visible text */}
+          <p className={`text-xs leading-relaxed transition-all ${
+            isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+          } ${
+            theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+          }`}>
+            "{text}"
+          </p>
+
+          {/* Hidden reference measurement twin - ALWAYS line-clamp-2 to measure overflow */}
+          <p
+            ref={measureRef}
+            aria-hidden="true"
+            className="text-xs leading-relaxed line-clamp-2 absolute opacity-0 pointer-events-none -z-50 select-none inset-x-0 top-0"
+          >
+            "{text}"
+          </p>
+        </div>
+      </div>
+
+      {/* Trigger Button with Active Cooldown Display */}
+      <button
+        onClick={() => onSpeak(preset)}
+        disabled={cooldownRemaining > 0 || isSystemSpeaking}
+        className={`mt-5 w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn ${
+          theme === 'dark'
+            ? 'bg-[#162238] hover:bg-[#00D2FF] text-slate-200 hover:text-slate-950 border-[#1F3152] hover:border-[#00D2FF]'
+            : 'bg-slate-100 hover:bg-sky-600 text-slate-700 hover:text-white border-slate-200 hover:border-sky-600'
+        }`}
+      >
+        {isSystemSpeaking ? (
+          <>
+            <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
+            <span>{t.speakingNowBtn}</span>
+          </>
+        ) : cooldownRemaining > 0 ? (
+          <>
+            <Clock className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+            <span>{cooldownRemaining}s</span>
+          </>
+        ) : (
+          <>
+            <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
+            <span>{t.speakButton}</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function PublicWorkspace({ extraAdminContent = null, isEmbedded = false }) {
   const { theme, toggleTheme, lang, toggleLang, t } = useThemeLang();
@@ -462,6 +621,16 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
     });
   }, [presets, selectedCategory, searchQuery]);
 
+  const areAllPresetsExpanded = filteredPresets.length > 0 && filteredPresets.every(p => expandedPresetIds.has(p.id));
+
+  const toggleAllPresetsExpand = () => {
+    if (areAllPresetsExpanded) {
+      setExpandedPresetIds(new Set());
+    } else {
+      setExpandedPresetIds(new Set(filteredPresets.map(p => p.id)));
+    }
+  };
+
   // Determine current status label
   const isSpeakerConnected = Boolean(systemState.audio_device?.is_external_speaker);
 
@@ -874,7 +1043,7 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
         {/* Presets Grid Section */}
         <section>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <div className="flex items-center gap-2">
                 <Activity className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
@@ -889,127 +1058,57 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 <span>{t.presetsCachedNote}</span>
               </p>
             </div>
-            <span className={`text-xs font-mono shrink-0 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-              {filteredPresets.length} {t.presetsCount}
-            </span>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={toggleAllPresetsExpand}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-semibold border transition-all duration-150 shadow-sm active:scale-95 ${
+                  theme === 'dark'
+                    ? areAllPresetsExpanded
+                      ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25'
+                      : 'bg-[#121C33] hover:bg-[#1A2847] border-[#1F3152] text-slate-300 hover:text-white'
+                    : areAllPresetsExpanded
+                      ? 'bg-sky-100 border-sky-300 text-sky-800 hover:bg-sky-200'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-slate-900'
+                }`}
+                title={areAllPresetsExpanded ? t.collapseAllPresets : t.expandAllPresets}
+              >
+                {areAllPresetsExpanded ? (
+                  <>
+                    <ChevronsUp className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{t.collapseAllPresets}</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronsDown className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{t.expandAllPresets}</span>
+                  </>
+                )}
+              </button>
+
+              <span className={`text-xs font-mono shrink-0 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                {filteredPresets.length} {t.presetsCount}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredPresets.map((preset) => {
-              const IconComponent = ICON_MAP[preset.icon] || Volume2;
-              // Preset title and text do NOT change on language switch (Requirement 4)
-              const title = preset.title || preset.title_ar || preset.title_en || preset.id;
-              const text = preset.text || preset.text_ar || preset.text_en || '';
-              const isExpanded = expandedPresetIds.has(preset.id);
-
-              // Find category badge
-              let categoryBadge = t.uncategorized;
-              if (preset.category_id && preset.category_id !== 'uncategorized') {
-                const matchedCat = categories.find(c => c.id === preset.category_id || c.name_ar === preset.category);
-                if (matchedCat) {
-                  categoryBadge = lang === 'en' ? (matchedCat.name_en || matchedCat.name_ar) : (matchedCat.name_ar || matchedCat.name_en);
-                } else if (preset.category) {
-                  categoryBadge = preset.category;
-                }
-              }
-
-              return (
-                <div
-                  key={preset.id}
-                  className={`group relative rounded-3xl p-5 flex flex-col justify-between transition-all duration-200 border ${
-                    theme === 'dark'
-                      ? 'bg-[#0B132B] hover:bg-[#121C33] border-[#1F3152] hover:border-[#00D2FF]/50 shadow-lg hover:shadow-[#00D2FF]/10'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-md'
-                  } hover:-translate-y-0.5`}
-                >
-                  <div>
-                    {/* Header: Icon & Category Tag */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors border ${
-                        theme === 'dark'
-                          ? 'bg-[#162238] group-hover:bg-[#00D2FF]/10 border-[#1F3152] group-hover:border-[#00D2FF]/40'
-                          : 'bg-slate-100 group-hover:bg-sky-50 border-slate-200 group-hover:border-sky-200'
-                      }`}>
-                        <IconComponent className={`w-4 h-4 ${theme === 'dark' ? 'text-[#00D2FF]' : 'text-sky-600'}`} />
-                      </div>
-                      <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-xl ${
-                        theme === 'dark' ? 'bg-[#162238] text-slate-300' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {categoryBadge}
-                      </span>
-                    </div>
-
-                    {/* Title with Expand Arrow Button exactly where circled in red */}
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <h3 className={`font-bold text-sm leading-snug transition-colors ${
-                        theme === 'dark' ? 'text-white group-hover:text-[#00D2FF]' : 'text-slate-900 group-hover:text-sky-600'
-                      }`}>
-                        {title}
-                      </h3>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePresetExpand(preset.id);
-                        }}
-                        title={isExpanded ? t.collapsePresetText : t.expandPresetText}
-                        className={`p-1 rounded-xl transition-all shrink-0 hover:scale-110 active:scale-95 ${
-                          isExpanded
-                            ? 'bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/40'
-                            : theme === 'dark'
-                              ? 'bg-[#162238] hover:bg-[#1E2D4A] text-slate-400 hover:text-white border border-[#1F3152]'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200'
-                        }`}
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Spoken Text (Clamped or Expanded) */}
-                    <p className={`text-xs leading-relaxed transition-all ${
-                      isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
-                    } ${
-                      theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
-                    }`}>
-                      "{text}"
-                    </p>
-                  </div>
-
-                  {/* Trigger Button with Active Cooldown Display */}
-                  <button
-                    onClick={() => handleSpeakPreset(preset)}
-                    disabled={cooldownRemaining > 0 || systemState.status === 'speaking'}
-                    className={`mt-5 w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn ${
-                      theme === 'dark'
-                        ? 'bg-[#162238] hover:bg-[#00D2FF] text-slate-200 hover:text-slate-950 border-[#1F3152] hover:border-[#00D2FF]'
-                        : 'bg-slate-100 hover:bg-sky-600 text-slate-700 hover:text-white border-slate-200 hover:border-sky-600'
-                    }`}
-                  >
-                    {systemState.status === 'speaking' ? (
-                      <>
-                        <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
-                        <span>{t.speakingNowBtn}</span>
-                      </>
-                    ) : cooldownRemaining > 0 ? (
-                      <>
-                        <Clock className="w-3.5 h-3.5 animate-pulse text-amber-400" />
-                        <span>{cooldownRemaining}s</span>
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
-                        <span>{t.speakButton}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
+            {filteredPresets.map((preset) => (
+              <PresetCardItem
+                key={preset.id}
+                preset={preset}
+                isExpanded={expandedPresetIds.has(preset.id)}
+                onToggleExpand={togglePresetExpand}
+                categories={categories}
+                theme={theme}
+                lang={lang}
+                t={t}
+                onSpeak={handleSpeakPreset}
+                isSystemSpeaking={systemState.status === 'speaking'}
+                cooldownRemaining={cooldownRemaining}
+              />
+            ))}
           </div>
         </section>
 
