@@ -293,7 +293,7 @@ export default function AdminApp() {
   };
 
   const handleVolumeChange = async (newVol) => {
-    const v = parseInt(newVol, 10);
+    const v = Math.max(0, Math.min(150, parseInt(newVol, 10)));
     setSettings(prev => ({ ...prev, server_volume: v }));
     try {
       await fetch('/api/admin/volume', {
@@ -806,20 +806,20 @@ export default function AdminApp() {
                   <input
                     type="range"
                     min="0"
-                    max="100"
+                    max="150"
                     value={settings.server_volume}
                     onChange={(e) => handleVolumeChange(e.target.value)}
                     style={{
-                      background: `linear-gradient(to right, #00D2FF 0%, #00D2FF ${settings.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${settings.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                      background: `linear-gradient(to right, #00D2FF 0%, #00D2FF ${Math.min(100, Math.max(0, (settings.server_volume / 150) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${Math.min(100, Math.max(0, (settings.server_volume / 150) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
                     }}
                     className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
                   />
-                  <div className="flex justify-between gap-1.5">
-                    {[0, 25, 50, 75, 100].map((v) => (
+                  <div className="flex justify-between gap-1.5 flex-wrap">
+                    {[0, 25, 50, 75, 100, 125, 150].map((v) => (
                       <button
                         key={v}
                         onClick={() => handleVolumeChange(v)}
-                        className={`text-[11px] font-mono px-2.5 py-1 rounded-xl transition-colors ${
+                        className={`text-[11px] font-mono px-2 py-1 rounded-xl transition-colors ${
                           settings.server_volume === v
                             ? 'bg-[#00D2FF] text-slate-950 font-bold shadow-sm'
                             : theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -976,7 +976,7 @@ export default function AdminApp() {
                     </div>
                   </div>
 
-                  {/* Chime Volume Slider (Image 2 Fix - Synchronized LTR track & buttons) */}
+                  {/* Chime Volume Slider (Synchronized LTR track & buttons up to 150%) */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between mb-1">
                       <label className={`text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -991,16 +991,16 @@ export default function AdminApp() {
                       <input
                         type="range"
                         min="0"
-                        max="100"
+                        max="150"
                         value={settings.chime_volume ?? 80}
                         onChange={(e) => updateSetting('chime_volume', Number(e.target.value))}
                         style={{
-                          background: `linear-gradient(to right, #F59E0B 0%, #F59E0B ${settings.chime_volume ?? 80}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${settings.chime_volume ?? 80}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                          background: `linear-gradient(to right, #F59E0B 0%, #F59E0B ${Math.min(100, Math.max(0, ((settings.chime_volume ?? 80) / 150) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${Math.min(100, Math.max(0, ((settings.chime_volume ?? 80) / 150) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
                         }}
                         className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-amber-400"
                       />
-                      <div className="flex justify-between gap-1.5">
-                        {[0, 25, 50, 75, 100].map((v) => (
+                      <div className="flex justify-between gap-1.5 flex-wrap">
+                        {[0, 25, 50, 75, 100, 125, 150].map((v) => (
                           <button
                             key={v}
                             type="button"
@@ -1012,6 +1012,102 @@ export default function AdminApp() {
                             }`}
                           >
                             {v}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pre-chime Silence Slider */}
+                  <div className="space-y-2 pt-3 border-t border-slate-700/30">
+                    <div className="flex items-center justify-between mb-1">
+                      <div>
+                        <label className={`text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                          {t.preChimeSilenceLabel}
+                        </label>
+                        <p className={`text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {t.preChimeSilenceDesc}
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-amber-400">
+                        {settings.pre_chime_silence ?? 0.5}s
+                      </span>
+                    </div>
+
+                    <div dir="ltr" className="w-full space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="3"
+                        step="0.1"
+                        value={settings.pre_chime_silence ?? 0.5}
+                        onChange={(e) => updateSetting('pre_chime_silence', Number(e.target.value))}
+                        style={{
+                          background: `linear-gradient(to right, #F59E0B 0%, #F59E0B ${Math.min(100, Math.max(0, ((settings.pre_chime_silence ?? 0.5) / 3) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${Math.min(100, Math.max(0, ((settings.pre_chime_silence ?? 0.5) / 3) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                        }}
+                        className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                      />
+                      <div className="flex justify-between gap-1.5 flex-wrap">
+                        {[0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => updateSetting('pre_chime_silence', s)}
+                            className={`text-[11px] font-mono px-2 py-1 rounded-xl transition-colors ${
+                              (settings.pre_chime_silence ?? 0.5) === s
+                                ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
+                                : theme === 'dark' ? 'bg-[#162238] text-slate-300 hover:bg-[#1F3152]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {s}s
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Inter-chime Delay Slider */}
+                  <div className="space-y-2 pt-3 border-t border-slate-700/30">
+                    <div className="flex items-center justify-between mb-1">
+                      <div>
+                        <label className={`text-xs font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+                          {t.interChimeDelayLabel}
+                        </label>
+                        <p className={`text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {t.interChimeDelayDesc}
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-amber-400">
+                        {settings.inter_chime_delay ?? 0.5}s
+                      </span>
+                    </div>
+
+                    <div dir="ltr" className="w-full space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="3"
+                        step="0.1"
+                        value={settings.inter_chime_delay ?? 0.5}
+                        onChange={(e) => updateSetting('inter_chime_delay', Number(e.target.value))}
+                        style={{
+                          background: `linear-gradient(to right, #F59E0B 0%, #F59E0B ${Math.min(100, Math.max(0, ((settings.inter_chime_delay ?? 0.5) / 3) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${Math.min(100, Math.max(0, ((settings.inter_chime_delay ?? 0.5) / 3) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                        }}
+                        className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                      />
+                      <div className="flex justify-between gap-1.5 flex-wrap">
+                        {[0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => updateSetting('inter_chime_delay', s)}
+                            className={`text-[11px] font-mono px-2 py-1 rounded-xl transition-colors ${
+                              (settings.inter_chime_delay ?? 0.5) === s
+                                ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
+                                : theme === 'dark' ? 'bg-[#162238] text-slate-300 hover:bg-[#1F3152]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {s}s
                           </button>
                         ))}
                       </div>

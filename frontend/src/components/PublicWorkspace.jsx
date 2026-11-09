@@ -5,7 +5,7 @@ import {
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
   Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap, Square,
-  ChevronDown
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import RoutineActions from './RoutineActions';
@@ -23,6 +23,19 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
+  const [expandedPresetIds, setExpandedPresetIds] = useState(new Set());
+
+  const togglePresetExpand = (presetId) => {
+    setExpandedPresetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(presetId)) {
+        next.delete(presetId);
+      } else {
+        next.add(presetId);
+      }
+      return next;
+    });
+  };
   const [systemState, setSystemState] = useState({
     status: 'ready',
     current_item: null,
@@ -238,7 +251,7 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
 
   // Adjust output volume directly
   const handleSetVolume = async (newVolume) => {
-    const vol = Math.max(0, Math.min(100, Number(newVolume)));
+    const vol = Math.max(0, Math.min(150, Number(newVolume)));
     setSystemState(prev => ({ ...prev, server_volume: vol }));
     try {
       await fetch('/api/volume', {
@@ -693,24 +706,24 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 <input
                   type="range"
                   min="0"
-                  max="100"
+                  max="150"
                   value={systemState.server_volume}
                   onChange={(e) => handleSetVolume(e.target.value)}
                   style={{
-                    background: `linear-gradient(to right, #00D2FF 0%, #00D2FF ${systemState.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${systemState.server_volume}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
+                    background: `linear-gradient(to right, #00D2FF 0%, #00D2FF ${Math.min(100, Math.max(0, (systemState.server_volume / 150) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} ${Math.min(100, Math.max(0, (systemState.server_volume / 150) * 100))}%, ${theme === 'dark' ? '#1E293B' : '#E2E8F0'} 100%)`
                   }}
                   className="w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
                 />
 
                 {/* Quick Volume Preset Buttons */}
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <div className="flex items-center gap-1.5">
-                    {[0, 25, 50, 75, 100].map((v) => (
+                <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[0, 25, 50, 75, 100, 125, 150].map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => handleSetVolume(v)}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold border transition-all ${
+                        className={`px-2 py-1 rounded-xl text-xs font-mono font-bold border transition-all ${
                           systemState.server_volume === v
                             ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF] shadow-sm'
                             : theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300 hover:bg-[#1C2A47]' : 'bg-slate-100 border-slate-200 text-slate-700'
@@ -887,6 +900,7 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
               // Preset title and text do NOT change on language switch (Requirement 4)
               const title = preset.title || preset.title_ar || preset.title_en || preset.id;
               const text = preset.text || preset.text_ar || preset.text_en || '';
+              const isExpanded = expandedPresetIds.has(preset.id);
 
               // Find category badge
               let categoryBadge = t.uncategorized;
@@ -925,15 +939,41 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                       </span>
                     </div>
 
-                    {/* Title */}
-                    <h3 className={`font-bold text-sm mb-1.5 transition-colors ${
-                      theme === 'dark' ? 'text-white group-hover:text-[#00D2FF]' : 'text-slate-900 group-hover:text-sky-600'
-                    }`}>
-                      {title}
-                    </h3>
+                    {/* Title with Expand Arrow Button exactly where circled in red */}
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <h3 className={`font-bold text-sm leading-snug transition-colors ${
+                        theme === 'dark' ? 'text-white group-hover:text-[#00D2FF]' : 'text-slate-900 group-hover:text-sky-600'
+                      }`}>
+                        {title}
+                      </h3>
 
-                    {/* Spoken Text Excerpt */}
-                    <p className={`text-xs line-clamp-2 leading-relaxed ${
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePresetExpand(preset.id);
+                        }}
+                        title={isExpanded ? t.collapsePresetText : t.expandPresetText}
+                        className={`p-1 rounded-xl transition-all shrink-0 hover:scale-110 active:scale-95 ${
+                          isExpanded
+                            ? 'bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/40'
+                            : theme === 'dark'
+                              ? 'bg-[#162238] hover:bg-[#1E2D4A] text-slate-400 hover:text-white border border-[#1F3152]'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200'
+                        }`}
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Spoken Text (Clamped or Expanded) */}
+                    <p className={`text-xs leading-relaxed transition-all ${
+                      isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+                    } ${
                       theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
                     }`}>
                       "{text}"
@@ -977,29 +1017,44 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           
           {/* Window 1: Quick Templates */}
-          <RoutineActions
-            onRoutineSpoke={(msg, type) => {
-              showToast(msg, type || 'success');
-              if (type !== 'error') {
-                if (systemState.settings?.spam_cooldown_enabled) {
-                  setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
+          <div className="flex flex-col h-full space-y-2">
+            <div className={`px-3.5 py-1.5 rounded-2xl border flex items-center gap-2 text-[11px] font-medium shadow-sm ${
+              theme === 'dark' ? 'bg-[#0E1726]/90 border-[#1F3152] text-cyan-300' : 'bg-sky-50 border-sky-200 text-sky-800'
+            }`}>
+              <Globe className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+              <span>{t.cloudAudioNotice}</span>
+            </div>
+            <RoutineActions
+              onRoutineSpoke={(msg, type) => {
+                showToast(msg, type || 'success');
+                if (type !== 'error') {
+                  if (systemState.settings?.spam_cooldown_enabled) {
+                    setCooldownRemaining(systemState.settings.cooldown_seconds || 15);
+                  }
                 }
-              }
-            }}
-            onStartSpeaking={() => {
-              setSystemState((prev) => ({
-                ...prev,
-                status: 'speaking'
-              }));
-            }}
-            cooldownRemaining={cooldownRemaining}
-            isSpeaking={systemState.status === 'speaking'}
-          />
+              }}
+              onStartSpeaking={() => {
+                setSystemState((prev) => ({
+                  ...prev,
+                  status: 'speaking'
+                }));
+              }}
+              cooldownRemaining={cooldownRemaining}
+              isSpeaking={systemState.status === 'speaking'}
+            />
+          </div>
 
           {/* Window 2: Free Speech Box with AI Tashkeel and Quick Snippets */}
-          <section className={`border rounded-3xl p-5 sm:p-6 shadow-xl transition-colors duration-200 h-full flex flex-col justify-between ${
-            theme === 'dark' ? 'bg-[#0B132B]/85 border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
-          }`}>
+          <div className="flex flex-col h-full space-y-2">
+            <div className={`px-3.5 py-1.5 rounded-2xl border flex items-center gap-2 text-[11px] font-medium shadow-sm ${
+              theme === 'dark' ? 'bg-[#0E1726]/90 border-[#1F3152] text-cyan-300' : 'bg-sky-50 border-sky-200 text-sky-800'
+            }`}>
+              <Globe className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+              <span>{t.cloudAudioNotice}</span>
+            </div>
+            <section className={`border rounded-3xl p-5 sm:p-6 shadow-xl transition-colors duration-200 h-full flex flex-col justify-between ${
+              theme === 'dark' ? 'bg-[#0B132B]/85 border-[#1F3152]' : 'bg-white border-slate-200 shadow-slate-100'
+            }`}>
             <div>
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-700/30 mb-4">
                 <div className="flex items-center gap-2.5">
@@ -1105,6 +1160,7 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
             </div>
           </section>
         </div>
+      </div>
 
       </main>
 

@@ -3,7 +3,7 @@
     "id": "routine_locate_device",
     "title": "أين هو جهاز رقم X",
     "template": "أين هو جهاز الطالب رقم {num}؟",
-    "default_value": "1",
+    "default_value": "500",
     "icon": "Search",
     "color": "cyan",
     "order": 1
@@ -36,12 +36,12 @@
     "order": 4
   },
   {
-    "id": "routine_call_ticket",
-    "title": "نداء صاحب وصل رقم X",
-    "template": "طالب صاحب وصل رقم {num} يرجى التوجه لمكتب الاستقبال.",
-    "default_value": "1",
-    "icon": "Volume2",
-    "color": "violet",
+    "id": "routine_1794215686375",
+    "title": "بحث عن شاحن جهاز",
+    "template": "أين هو شاحن الحهاز رقم {num} ؟",
+    "default_value": "10",
+    "icon": "Search",
+    "color": "cyan",
     "order": 5
   }
 ]

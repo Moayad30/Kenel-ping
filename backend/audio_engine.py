@@ -345,14 +345,14 @@ class AudioEngine:
             match = re.search(r"Volume:\s+([0-9.]+)", res.stdout)
             if match:
                 vol = int(round(float(match.group(1)) * 100))
-                return min(100, max(0, vol))
+                return min(150, max(0, vol))
         except Exception:
             pass
         settings = load_settings()
         return settings.server_volume
 
     async def set_volume(self, volume: int) -> int:
-        volume = max(0, min(100, volume))
+        volume = max(0, min(150, volume))
         settings = load_settings()
         settings.server_volume = volume
         save_settings(settings)
@@ -362,7 +362,7 @@ class AudioEngine:
             if "XDG_RUNTIME_DIR" not in env and os.path.exists(f"/run/user/{os.getuid()}"):
                 env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
             proc = await asyncio.create_subprocess_exec(
-                "wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", val_float,
+                "wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", val_float,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
                 env=env
@@ -559,15 +559,17 @@ class AudioEngine:
 
                 settings = load_settings()
                 chime_timing = getattr(settings, 'chime_timing', 'synchronized')
+                pre_silence = float(getattr(settings, 'pre_chime_silence', 0.5))
+                inter_delay = float(getattr(settings, 'inter_chime_delay', 0.5))
 
-                # Option 1: Instant timing -> chime rings immediately before speech preparation
+                # Option 1: Instant timing -> pre-silence then chime immediately before speech preparation
                 if chime_timing == "instant" and settings.pre_chime_enabled:
+                    if pre_silence > 0:
+                        await asyncio.sleep(pre_silence)
                     chime_file = CHIMES_DIR / f"{settings.chime_tone}.mp3"
                     if chime_file.exists():
                         chime_vol = getattr(settings, 'chime_volume', 80)
                         await self.play_audio_file(chime_file, volume=chime_vol)
-                    if settings.bluetooth_wakeup_enabled:
-                        await asyncio.sleep(0.4)
 
                 # Prepare speech playback audio
                 preset_id = item.get("preset_id")
@@ -589,13 +591,22 @@ class AudioEngine:
                     audio_to_play = temp_file
 
                 # Option 2: Synchronized timing (default) -> chime rings only when speech is 100% prepared
-                if chime_timing != "instant" and settings.pre_chime_enabled:
-                    chime_file = CHIMES_DIR / f"{settings.chime_tone}.mp3"
-                    if chime_file.exists():
-                        chime_vol = getattr(settings, 'chime_volume', 80)
-                        await self.play_audio_file(chime_file, volume=chime_vol)
-                    if settings.bluetooth_wakeup_enabled:
-                        await asyncio.sleep(0.4)
+                if chime_timing != "instant":
+                    if pre_silence > 0:
+                        await asyncio.sleep(pre_silence)
+                    if settings.pre_chime_enabled:
+                        chime_file = CHIMES_DIR / f"{settings.chime_tone}.mp3"
+                        if chime_file.exists():
+                            chime_vol = getattr(settings, 'chime_volume', 80)
+                            await self.play_audio_file(chime_file, volume=chime_vol)
+                        if inter_delay > 0:
+                            await asyncio.sleep(inter_delay)
+                else:
+                    # If instant timing was used, apply inter-chime delay before speaking
+                    if settings.pre_chime_enabled and inter_delay > 0:
+                        await asyncio.sleep(inter_delay)
+                    elif not settings.pre_chime_enabled and pre_silence > 0:
+                        await asyncio.sleep(pre_silence)
 
                 if audio_to_play.exists():
                     await self.play_audio_file(audio_to_play)

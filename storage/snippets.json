@@ -6,12 +6,6 @@
     "order": 3
   },
   {
-    "id": "snip_go_to",
-    "text": "يرجى التوجه إلى قسم الاستقبال ",
-    "icon": "ArrowRight",
-    "order": 4
-  },
-  {
     "id": "snip_reminder",
     "text": "تذكير: ",
     "icon": "Bell",
@@ -24,9 +18,9 @@
     "order": 6
   },
   {
-    "id": "snip_meeting",
-    "text": "اجتماع فوري لفريق الصيانة ",
-    "icon": "Users",
-    "order": 7
+    "id": "snip_1794216017192",
+    "text": "سوف نشتري من الكشك ، هل حدا بدو نشتريلو شي",
+    "icon": "Tag",
+    "order": 4
   }
 ]

@@ -59,7 +59,7 @@ class SpeakCallRequest(BaseModel):
     lang: Optional[str] = None
 
 class VolumeRequest(BaseModel):
-    volume: int = Field(..., ge=0, le=100)
+    volume: int = Field(..., ge=0, le=150)
 
 class TestChimeRequest(BaseModel):
     tone: str  # airport | bell | alert

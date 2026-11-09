@@ -32,8 +32,11 @@
     "spam_cooldown_enabled": true,
     "cooldown_seconds": 15,
     "pre_chime_enabled": true,
-    "chime_tone": "crystal",
-    "chime_timing": "synchronized"
+    "chime_tone": "airport",
+    "chime_volume": 80,
+    "chime_timing": "synchronized",
+    "pre_chime_silence": 0.5,
+    "inter_chime_delay": 0.5
   }
 }
 ```
@@ -42,18 +45,19 @@
 
 ### 🔹 1.2 التحكم بمستوى صوت مخرج الصوت
 - **الرابط:** `POST /api/volume`
-- **الوصف:** ضبط مستوى صوت مخرج الصوت المباشر من نافذة إعدادات الصوت في شريط التنقل العلوي.
+- **الوصف:** ضبط مستوى صوت مخرج الصوت المباشر من نافذة إعدادات الصوت في شريط التنقل العلوي (يدعم تضخيماً حتى 150%).
 - **جسم الطلب (Request Body):**
 ```json
 {
-  "volume": 75
+  "volume": 120
 }
 ```
+*(النطاق المسموح: من `0` إلى `150`)*
 - **الاستجابة (200 OK):**
 ```json
 {
   "success": true,
-  "volume": 75
+  "volume": 120
 }
 ```
 
@@ -172,7 +176,7 @@
 
 ### 🔹 2.2 إعدادات الصوت وهندسة النظام
 - `GET /api/admin/settings`: استرجاع إعدادات النظام الحالية.
-- `POST /api/admin/settings`: حفظ وتطبيق إعدادات الصوت (نغمة التنبيه، التوقيت المتزامن/الفوري، مهلة التكرار، والأصوات العصبية).
+- `POST /api/admin/settings`: حفظ وتطبيق إعدادات الصوت (نغمة التنبيه، مستوى صوت النغمة حتى 150%، التوقيت المتزامن/الفوري، مهل الصمت `pre_chime_silence` و `inter_chime_delay`، مهلة التكرار، والأصوات العصبية).
 
 ---
 

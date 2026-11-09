@@ -32,10 +32,12 @@ class SettingsModel(BaseModel):
     cooldown_seconds: int = Field(default=15, ge=1, le=120)
     pre_chime_enabled: bool = True
     chime_tone: str = "airport"  # airport, bell, alert
-    chime_volume: int = Field(default=80, ge=0, le=100)
+    chime_volume: int = Field(default=80, ge=0, le=150)
     chime_timing: str = "synchronized"  # synchronized (generate first then chime+speak) or instant (chime immediately)
+    pre_chime_silence: float = Field(default=0.5, ge=0.0, le=3.0)
+    inter_chime_delay: float = Field(default=0.5, ge=0.0, le=3.0)
     bluetooth_wakeup_enabled: bool = True
-    server_volume: int = Field(default=85, ge=0, le=100)
+    server_volume: int = Field(default=85, ge=0, le=150)
     bluetooth_speaker_mac: Optional[str] = None
     bluetooth_speaker_name: Optional[str] = None
     tts_voice_ar: str = "ar-SA-HamedNeural"
