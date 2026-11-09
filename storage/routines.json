@@ -12,7 +12,7 @@
     "id": "routine_completed_count",
     "title": "إنجاز الأجهزة اليوم",
     "template": "تم إنجاز صيانة {num} جهاز إلى الآن.",
-    "default_value": "15",
+    "default_value": "60",
     "icon": "CheckCircle2",
     "color": "emerald",
     "order": 2

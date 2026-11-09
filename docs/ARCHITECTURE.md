@@ -1,86 +1,135 @@
-# 🏗️ معمارية وهيكلية نظام Kernel Ping (Architecture Deep Dive)
+# 🏗️ هيكلية ومعمارية النظام (Kernel Ping Center — Architecture)
 
-يقوم نظام **Kernel Ping** على معمارية معيارية حديثة مصممة خصيصاً للتشغيل الموثوق في بيئات العمل المشتركة، مع التركيز على الأداء السريع، عزل الواجهات، ومنع تضارب الصوت نهائياً.
+يوثق هذا المستند المعمارية التقنية والتصميم الداخلي لنظام **Kernel Ping Center**، ومسار تدفق البيانات بين الواجهات الأمامية التفاعلية، الخادم الخلفي غير المتزامن، ومحرك هندسة وبث الصوت.
 
 ---
 
-## 📐 المخطط المعماري العام (System Architecture Flowchart)
+## 📐 1. المخطط الهيكلي العام (High-Level Architecture)
 
 ```mermaid
 flowchart TD
-    subgraph Clients["أجهزة وواجهات المستخدمين (Clients)"]
-        PublicUI["🌐 الواجهة العامة للأعضاء (/)\n(عرض كرت الصوت المتصل، التحكم بمستوى الصوت، الجمل، والنطق الحر)"]
-        AdminUI["🔒 لوحة الإدارة (/admin)\n(تسجيل فويس مباشر للبفلة، هندسة الصوت، الجمل والتصنيفات، وتدقيق العمليات)"]
+    Client["متصفحات الأعضاء والمشرفين\n(React SPA - Desktop & Mobile)"]
+    
+    subgraph BackendServer ["خادم FastAPI الخلفي (Python Async)"]
+        API["محول واجهات REST API & Static Files"]
+        WS["موزع مقابس الويب (WebSocket Manager)"]
+        Auth["وحدة المصادقة والحماية (JWT Auth)"]
+        AudioQ["طابور النداءات غير المتزامن (Async Speech Queue)"]
+        TTS["محرك النطق العصبي (Edge-TTS & Mishkal)"]
+        Engine["مشغل الصوتيات منخفض التأخير (MPV Engine)"]
     end
-
-    subgraph BackendEngine["خادم التطبيق ومحرك الصوت (FastAPI Backend)"]
-        API["FastAPI REST Endpoints\n(/api/speak, /api/volume, /api/presets, /api/admin)"]
-        WS["WebSocket Hub (/ws)\n(مزامنة الحالة اللحظية، مهلة التكرار، ومستوى الصوت)"]
-        AuthLayer["طبقة التحقق المشفرة\n(PyJWT Bearer Tokens)"]
-        TashkeelEngine["معالج التشكيل الآلي (AI Tashkeel)\n(Mishkal Arabic Vocalizer)"]
-        VoiceHandler["معالج الفويس المباشر (Zero Retention Handler)\n(استلام البث، تشغيله، وحذفه فورياً)"]
-        
-        subgraph QueueSystem["نظام الطابور والمخرجات الصوتية (Audio Engine)"]
-            Q["asyncio.Queue\n(معالجة تسلسلية لمنع تداخل الأصوات)"]
-            Worker["Queue Worker Thread\n(Chime -> BT Ping -> MP3 Playback)"]
-            Cooldown["Universal Spam Cooldown Tracker\n(تتبع مهلة التكرار للجمل والنطق الحر)"]
-            SinkDetector["مكتشف كرت الصوت الفعلي\n(PipeWire / WirePlumber / ALSA Detection)"]
-        end
+    
+    subgraph AudioSubsystem ["النظام الفرعي للصوت (OS Audio Pipeline)"]
+        PipeWire["خادم الصوت (PipeWire / ALSA)"]
+        OutputCard["كرت الصوت أو مكبر الصوت (AUX / USB / Bluetooth)"]
     end
-
-    subgraph LinuxAudioSubsystem["بيئة الصوت لنظام التشغيل (Linux Audio Subsystem)"]
-        PipeWire["خادم صوت PipeWire"]
-        MPV["مشغل الصوت mpv (Low-Latency)"]
-        HardwareCard["كرت الصوت الفعلي (Internal ALC256 / Bluetooth Speaker / AUX)"]
+    
+    subgraph Storage ["طبقة التخزين الدائم (JSON & Audio Files)"]
+        AuditFile[("storage/audit.json\n(50,000 سجل)")]
+        PresetsFile[("storage/presets.json")]
+        CategoriesFile[("storage/categories.json")]
+        AudioCache[("storage/presets/*.mp3\n(ملفات الكاش الصوتي)")]
     end
-
-    PublicUI <-->|HTTP REST & WebSockets| API
-    AdminUI <-->|Authorized JWT REST & WebSockets| API
-    API --> AuthLayer
-    API --> QueueSystem
-    API --> VoiceHandler
-    VoiceHandler --> MPV
-    QueueSystem --> Worker
-    Worker --> MPV
-    MPV --> PipeWire
-    PipeWire --> HardwareCard
-    SinkDetector -.->|مراقبة واستعلام| HardwareCard
+    
+    Client <-->|REST Requests & WebSocket Events| API
+    Client <-->|Real-time State Sync| WS
+    API --> Auth
+    API --> AudioQ
+    AudioQ --> TTS
+    TTS --> AudioCache
+    AudioQ --> Engine
+    Engine --> PipeWire
+    PipeWire --> OutputCard
+    API <--> Storage
+    WS -.->|تحديث فوري للحالة| Client
 ```
 
 ---
 
-## 🏛️ المكونات الأساسية للنظام
+## ⚡ 2. نموذج التفاعل اللحظي (Real-time Reactivity Model)
 
-### 1. واجهة الأعضاء العامة (Public Workspace)
-- واجهة خفيفة وسريعة مصممة بنظام SPA عبر React 19 و Tailwind CSS.
-- تتصل بالخادم عبر قناتين:
-  - **REST API:** لإرسال الأوامر والنداءات وضبط مستوى الصوت.
-  - **WebSocket:** لاستقبال التحديثات اللحظية (تغير حالة البفلة، دوران الطابور، مستوى الصوت، والمهلة المتبقية).
-- تتيح لأي عضو معرفة كرت الصوت الفعلي المتصل وضبط درجة علو الصوت مباشرة.
+يعتمد النظام على تركيبة ثلاثية الأبعاد تضمن سرعة استجابة فائقة بنسبة 100% ودون الحاجة لتحديث الصفحة يدوياً:
 
-### 2. لوحة الإدارة والتحكم (Admin Control Center)
-- لوحة محمية بمصادقة مشفرة عبر JWT (JSON Web Tokens).
-- تدمج الواجهة العامة بالكامل لإتاحة الاستخدام السريع، مع إضافة استديو التسجيل الصوتي المباشر (Voice Broadcast Studio) للبث إلى البفلة مع الحذف الفوري التام.
-- إدارة تصنيفات الجمل (بما فيها خيار "غير مصنف").
-- سجل العمليات والتدقيق مع تأكيد الحذف لمنع الأخطاء البشرية.
+1. **التحديث التفاؤلي الفوري (Optimistic State Update):**
+   - بمجرد نقر المستخدم على زر النداء أو زر إيقاف الصوت، تنتقل الواجهة محلياً في زمن `0ms` إلى حالة "جاري النطق" أو "جاهز" لتوفير استجابة بصرية فورية ومنع تكرار النقر.
+2. **مقابس الويب ذاتية إعادة الاتصال (Auto-Reconnecting WebSockets):**
+   - ترسل خوادم FastAPI إشعارات فورية عبر قناة `/ws` بمجرد تغير حالة الطابور الصوتي أو مستوى الصوت لجميع المتصفحات المتصلة.
+   - إذا حدث انقطاع في الشبكة أو سكون في المتصفح، تعيد الواجهة الاتصال تلقائياً كل 1.5 ثانية.
+3. **المزامنة الدورية الاحتياطية (Fallback Polling):**
+   - استدعاء خلفي خفيف لنقطة `/api/status` كل 1.5 ثانية يضمن مزامنة دقيقة حتى لو كانت بيئة المتصفح تقيد الـ WebSocket في الخلفية.
 
-### 3. خادم التطبيق ومحرك الصوت (FastAPI & AudioEngine)
-- مبني على لغة Python 3 بنظام غير متزامن بالكامل (`asyncio`).
-- نظام طابور تسلسلي يمنع تراكب الأصوات أو انقطاعها.
-- كشف ذكي عن كرت الصوت النشط والتفريق بين المخرج الداخلي والسماعة الخارجية.
-- تحكم مستقل بمستوى صوت نغمات التنبيه المسبقة.
+---
 
-### 4. محرك توقيت النغمة المتزامن (Synchronized Chime Engine)
-- **دورة المعالجة المتزامنة (Zero Gap Audio Cycle):**
-  1. استلام الطلب ووضعه في طابور `asyncio.Queue`.
-  2. سحب العنصر وتوليد الصوت عبر `edge-tts` (أو جلب ملف الـ MP3 المخزن محلياً).
-  3. التأكد من جهوزية الملف الصوتي على القرص 100%.
-  4. إطلاق نغمة التنبيه (Pre-Chime) على مستوى الصوت المحدد.
-  5. تطبيق مهلة إيقاظ البلوتوث (400ms).
-  6. تشغيل الصوت فوراً عبر `mpv` دون أي ثانية صمت أو تأخير بعد النغمة.
+## 🔊 3. خط أنابيب الصوت وهندسة البث (Audio Processing Pipeline)
 
-### 5. نظام الإيقاف الطارئ وحماية البث المباشر (Emergency Stop & Mic Protection)
-- يتيح إنهاء عملية تشغيل `mpv` النشطة وتفريغ طابور النداءات وإعادة النظام لحالة `ready`.
-- **طبقة أمان مخصصة للبث المباشر للمشرف (`source: admin_voice`):**
-  - عند بث صوت بشري مباشر من مايك المشرف، يُحظر على الأعضاء إيقافه نهائياً من الواجهة أو عبر الـ API.
-  - يتحقق مسار `/api/audio/stop` في الباك إند من توكن المشرف المشفر (`JWT`)؛ وإذا لم يكن المشرف هو من طلب الإيقاف، يتم إرجاع استجابة `HTTP 403 Forbidden` فوراً لحماية الرسالة الصوتية الحية من المقاطعة.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as متصفح العضو / المشرف
+    participant B as خادم الباك إند (FastAPI)
+    participant Q as طابور المعالجة (Audio Queue)
+    participant E as مشغل MPV
+    participant S as كرت الصوت / البفلة
+
+    U->>B: طلب نداء (POST /api/speak/preset/xyz)
+    B->>Q: إدراج في الطابور وحفظ في سجل التدقيق
+    B-->>U: رد نجاح (200 OK: Queued)
+    B->>U: بث حالة "قيد النطق" عبر WebSocket
+    
+    Q->>Q: التحقق من التوقيت (Synchronized)
+    alt ملف نطق غير مخزن
+        Q->>Q: توليد النطق عبر الذكاء الاصطناعي (Edge-TTS)
+    end
+    
+    Q->>E: إطلاق نغمة التنبيه (Pre-Chime)
+    E->>S: رنين النغمة
+    Q->>Q: فترة استقرار البلوتوث (400ms)
+    Q->>E: تشغيل ملف النطق الصوتي فوراً
+    E->>S: بث الصوت بالمكتب دون أي فراغ صامت
+    
+    E-->>Q: اكتمال تشغيل الصوت
+    Q->>B: تفريغ الطابور وإرجاع الحالة إلى Ready
+    B->>U: بث حالة "جاهز" عبر WebSocket
+```
+
+---
+
+## 📁 4. الهيكل التنظيمي للمشروع (Directory Structure)
+
+```
+kernelping/
+├── backend/                  # خادم البايثون الخلفي (FastAPI Engine)
+│   ├── main.py               # نقاط الـ REST API ومقابس الـ WebSocket
+│   ├── audio_engine.py       # محرك الصوت وتوليد النطق وتشغيل MPV
+│   ├── config.py             # قراءة وكتابة الإعدادات وموديلات Pydantic
+│   ├── auth.py               # مصادقة وتشفير المشرف عبر JWT
+│   └── generate_chimes.py    # مولد نغمات التنبيه التلقائي
+├── frontend/                 # الواجهة الأمامية الحديثة (React SPA)
+│   ├── src/
+│   │   ├── components/       # مكونات الواجهة (PublicWorkspace, AdminApp, RoutineActions)
+│   │   ├── context/          # إدارة المظهر المظلم/الفاتح وتغيير اللغات
+│   │   ├── translations.js   # قواميس التوطين الموحدة (العربية والإنجليزية)
+│   │   └── App.jsx           # موجه المسارات الرئيسي
+│   ├── dist/                 # حزم الإنتاج المجمعة والمحسنة للسرعة
+│   └── package.json          # حزم واعتماديات React و Vite و Tailwind
+├── storage/                  # قاعدة البيانات والمستودع الصوتي
+│   ├── audit.json            # سجل التدقيق (يتسع لـ 50,000 عملية)
+│   ├── presets.json          # الجمل الثابتة المعتمدة
+│   ├── categories.json       # تصنيفات فريق الـ IT الطلابي
+│   ├── routines.json         # قوالب النداءات السريعة
+│   ├── snippets.json         # الاقتراحات السريعة
+│   ├── settings.json         # إعدادات الصوت والنغمات ومهلة التكرار
+│   ├── presets/              # ملفات النطق الصوتي المخزنة محلياً (.mp3)
+│   └── chimes/               # ملفات نغمات التنبيه (.mp3)
+├── docs/                     # التوثيق الرسمي الشامل للمشروع
+├── run.sh                    # سكربت تشغيل بيئة التطوير
+└── start_production.sh       # سكربت الإنتاج الموحد وخادم الـ IP التلقائي
+```
+
+---
+
+## 🔒 5. معايير الأمان وحماية البيانات (Security & Reliability)
+
+- **حماية لوحة الإدارة:** تشفير كلمات المرور باستخدام JWT Tokens مع مدة صلاحية قابلة للضبط وحفظ التوكن في التخزين المحلي الآمن.
+- **منع الإغراق والإزعاج (Anti-Spam Cooldown):** مهلة تكرار ديناميكية (افتراضياً 15 ثانية) تحمي المكتب من تكرار نفس النداء أو إرسال طلبات متعددة بالخطأ.
+- **استمرارية السيرفر:** تم ضبط النظام ليعمل كخدمة نظام مستقلة تعيد تشغيل نفسها فوراً في حال حدوث أي خطأ عارض أو إعادة تشغيل الجهاز.

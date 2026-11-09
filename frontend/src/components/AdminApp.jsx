@@ -7,7 +7,6 @@ import {
   ChevronUp, ChevronDown, Square
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
-import AdminVoiceRecorder from './AdminVoiceRecorder';
 import PublicWorkspace from './PublicWorkspace';
 import IconPicker, { renderAppIcon } from './IconPicker';
 
@@ -771,18 +770,10 @@ export default function AdminApp() {
       {/* Main Tab Panels */}
       <div className="max-w-7xl mx-auto px-4 lg:px-8 mt-6">
         
-        {/* TAB 1: INTEGRATED MAIN WORKSPACE + LIVE VOICE BROADCAST (Requirement 7) */}
+        {/* TAB 1: INTEGRATED MAIN WORKSPACE */}
         {activeTab === 'workspace' && (
           <div>
-            <PublicWorkspace
-              isEmbedded={true}
-              extraAdminContent={
-                <AdminVoiceRecorder
-                  token={token}
-                  onBroadcastSuccess={(msg) => showToast(msg, 'success')}
-                />
-              }
-            />
+            <PublicWorkspace isEmbedded={true} />
           </div>
         )}
 

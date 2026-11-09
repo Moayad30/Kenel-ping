@@ -547,28 +547,18 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 )}
               </button>
 
-              {/* Immediate Stop Audio Button (Always visible in member header, protected if admin live voice) */}
-              {systemState.status === 'speaking' && systemState.current_item?.source === 'admin_voice' ? (
-                <div
-                  title={t.stopAudioAdminVoiceProtected}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-amber-500/40 text-amber-300 font-bold text-xs shadow-md select-none cursor-not-allowed"
-                >
-                  <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>{t.stopAudioAdminVoiceProtected}</span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleStopAudio}
-                  title={t.stopAudioBtn}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer ${
-                    systemState.status === 'speaking' ? 'animate-pulse ring-2 ring-rose-400/50' : ''
-                  }`}
-                >
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{t.stopAudioBtn}</span>
-                </button>
-              )}
+              {/* Immediate Stop Audio Button */}
+              <button
+                type="button"
+                onClick={handleStopAudio}
+                title={t.stopAudioBtn}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+                  systemState.status === 'speaking' ? 'animate-pulse ring-2 ring-rose-400/50' : ''
+                }`}
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>{t.stopAudioBtn}</span>
+              </button>
 
 
               {/* Clickable Member Volume Badge */}

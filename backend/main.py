@@ -132,25 +132,11 @@ async def set_public_volume(payload: VolumeRequest):
     return {"success": True, "volume": vol}
 
 @app.post("/api/audio/stop")
-async def stop_audio_playback(credentials: Optional[HTTPAuthorizationCredentials] = Security(security_scheme)):
+async def stop_audio_playback():
     """
     Immediately stops all current and queued audio playback.
-    Protected rule: If the current broadcast is live admin microphone (admin_voice),
-    members cannot stop it; only authenticated admin can stop it.
+    Clears pending items from the queue and resets the system state to ready.
     """
-    current = audio_engine.current_item
-    if current and current.get("source") == "admin_voice":
-        is_admin = False
-        if credentials and credentials.credentials:
-            payload = decode_access_token(credentials.credentials)
-            if payload and payload.get("sub") == ADMIN_USERNAME:
-                is_admin = True
-        if not is_admin:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin live voice broadcast cannot be stopped by members"
-            )
-
     result = await audio_engine.stop_playback()
     return result
 
@@ -658,33 +644,6 @@ async def admin_rebuild_all_cache(admin: dict = Depends(require_admin)):
             print(f"Error rebuilding cache for {p.id}: {e}")
     return {"success": True, "message": "All audio caches rebuilt successfully"}
 
-# ----------------- Admin Live Voice Broadcasting (Zero Retention) -----------------
-
-@app.post("/api/admin/broadcast-voice")
-async def admin_broadcast_voice(
-    file: UploadFile = File(...),
-    request: Request = None,
-    admin: dict = Depends(require_admin)
-):
-    """
-    Receives live voice recording from Admin device, broadcasts it directly to speaker,
-    and immediately deletes the file from disk with zero retention.
-    """
-    client_ip = request.client.host if request and request.client else "Admin"
-    suffix = Path(file.filename or "voice.webm").suffix or ".webm"
-    temp_file = TEMP_DIR / f"voice_{uuid.uuid4().hex}{suffix}"
-
-    with open(temp_file, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-
-    # Broadcast to speaker and immediately delete file
-    res = await audio_engine.broadcast_voice_recording(temp_file, sender_ip=client_ip)
-    return {
-        "success": True,
-        "message": "Live voice announcement broadcasted to speaker and securely deleted",
-        "result": res
-    }
 
 # ----------------- Admin Audit Log -----------------
 

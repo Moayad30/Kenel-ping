@@ -273,16 +273,16 @@
     "color": "red"
   },
   {
-    "id": "يب",
+    "id": "dd",
     "category_id": "uncategorized",
     "category": "Uncategorized",
-    "title": "يس",
-    "title_ar": "يس",
-    "title_en": "يس",
-    "text": "بلا",
-    "text_ar": "بلا",
-    "text_en": "بلا",
-    "icon": "Volume2",
+    "title": "كيرنال تيم تشجيع",
+    "title_ar": "كيرنال تيم تشجيع",
+    "title_en": "كيرنال تيم تشجيع",
+    "text": "كيرنال كرو يملأ الجو طاقة وحيوية",
+    "text_ar": "كيرنال كرو يملأ الجو طاقة وحيوية",
+    "text_en": "كيرنال كرو يملأ الجو طاقة وحيوية",
+    "icon": "Rocket",
     "color": "cyan"
   }
 ]

@@ -107,29 +107,11 @@ export const translations = {
     status: "الحالة",
 
     // Admin Tabs
-    tabLiveWorkspace: "الواجهة الرئيسية والبث المباشر",
+    tabLiveWorkspace: "الواجهة الرئيسية والنداءات",
     tabAudio: "إعدادات وهندسة الصوت",
     tabCategories: "إدارة التصنيفات",
     tabPresets: "إدارة الجمل والتخزين (Presets)",
     tabAudit: "سجل العمليات والتدقيق (Activity Audit)",
-
-    // Admin Live Voice Broadcast
-    adminVoiceTitle: "تسجيل فويس مباشر للبفلة (Live Voice Broadcast)",
-    adminVoiceSubtitle: "سجل رسالة صوتية مباشرة من جهازك لبثها عبر البفلة فوراً مع حذفها نهائياً وعدم حفظها إطلاقاً",
-    startRecordBtn: "بدء التسجيل",
-    pauseRecordBtn: "إيقاف مؤقت",
-    resumeRecordBtn: "استئناف التسجيل",
-    stopRecordBtn: "إنهاء التسجيل",
-    previewVoiceBtn: "معاينة واستماع",
-    discardVoiceBtn: "إلغاء وإعادة التسجيل",
-    broadcastVoiceBtn: "بث الفويس إلى البفلة الآن 📢",
-    recordingInProgress: "جاري التسجيل الصوتي المباشر...",
-    recordingPaused: "التسجيل متوقف مؤقتاً",
-    recordingFinished: "تم إنهاء التسجيل - يمكنك الاستماع للمعاينة أو البث فوراً للبفلة",
-    broadcastingVoice: "جاري إرسال وبث الصوت إلى البفلة...",
-    voiceBroadcastSuccess: "تم بث الفويس بنجاح عبر البفلة ومسح الملف نهائياً 🔊",
-    zeroRetentionNotice: "ميزة الأمان والخصوصية: لا يتم الاحتفاظ بالتسجيل الصوتي نهائياً ويُحذف فور انتهاء النطق.",
-    micAccessError: "تعذر فتح الميكروفون. يرجى السماح للمتصفح بالوصول إلى الميكروفون.",
 
     // Admin Audio Settings
     serverVolumeTitle: "صوت السيرفر الرئيسي ومخرج الصوت",
@@ -409,29 +391,11 @@ export const translations = {
     status: "Status",
 
     // Admin Tabs
-    tabLiveWorkspace: "Main Workspace & Live Broadcast",
+    tabLiveWorkspace: "Main Workspace & Announcements",
     tabAudio: "Audio Engine & Controls",
     tabCategories: "Categories Management",
     tabPresets: "Presets CRUD & Caching",
     tabAudit: "Activity Audit Trail",
-
-    // Admin Live Voice Broadcast
-    adminVoiceTitle: "Live Voice Recording & Speaker Broadcast",
-    adminVoiceSubtitle: "Record voice directly from your device and broadcast to the office speaker with immediate zero-retention deletion",
-    startRecordBtn: "Start Recording",
-    pauseRecordBtn: "Pause",
-    resumeRecordBtn: "Resume Recording",
-    stopRecordBtn: "Stop Recording",
-    previewVoiceBtn: "Preview Audio",
-    discardVoiceBtn: "Discard & Re-record",
-    broadcastVoiceBtn: "Broadcast to Speaker Now 📢",
-    recordingInProgress: "Live recording in progress...",
-    recordingPaused: "Recording paused",
-    recordingFinished: "Recording finished — preview or broadcast immediately",
-    broadcastingVoice: "Broadcasting voice recording to speaker...",
-    voiceBroadcastSuccess: "Voice recording broadcasted and immediately deleted from storage 🔊",
-    zeroRetentionNotice: "Zero Retention Guarantee: Voice recordings are purged immediately after playback for complete privacy.",
-    micAccessError: "Microphone access denied. Please grant microphone permission in your browser.",
 
     // Admin Audio Settings
     serverVolumeTitle: "Server Output & Hardware Sound Card",

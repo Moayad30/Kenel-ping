@@ -3,7 +3,7 @@
   "cooldown_seconds": 15,
   "pre_chime_enabled": true,
   "chime_tone": "bell",
-  "chime_volume": 75,
+  "chime_volume": 100,
   "chime_timing": "synchronized",
   "bluetooth_wakeup_enabled": true,
   "server_volume": 50,
