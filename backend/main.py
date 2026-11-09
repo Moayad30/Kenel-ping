@@ -528,17 +528,16 @@ async def admin_list_presets(admin: dict = Depends(require_admin)):
 async def admin_create_preset(preset: PresetModel, admin: dict = Depends(require_admin)):
     presets = load_presets()
 
-    # Automatically generate static unique ID if omitted
-    if not preset.id or not preset.id.strip():
-        slug = re.sub(r'[^a-zA-Z0-9]+', '_', (preset.title_en or preset.title or "").strip().lower()).strip('_')
-        preset.id = f"preset_{slug}" if slug else f"preset_{uuid.uuid4().hex[:8]}"
-
-    # Ensure uniqueness
-    original_id = preset.id
-    counter = 1
-    while any(p.id == preset.id for p in presets):
-        preset.id = f"{original_id}_{counter}"
-        counter += 1
+    # Automatically generate sequential numeric ID
+    existing_numeric_ids = [int(p.id) for p in presets if p.id and str(p.id).isdigit()]
+    if not preset.id or not str(preset.id).strip() or not str(preset.id).isdigit():
+        next_id = (max(existing_numeric_ids) + 1) if existing_numeric_ids else 1
+        preset.id = str(next_id)
+    else:
+        preset.id = str(preset.id).strip()
+        if any(p.id == preset.id for p in presets):
+            next_id = (max(existing_numeric_ids) + 1) if existing_numeric_ids else 1
+            preset.id = str(next_id)
 
     # Unified single title and single text
     title = preset.title or preset.title_ar or preset.title_en or preset.id

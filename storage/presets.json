@@ -1,6 +1,6 @@
 [
   {
-    "id": "reception_welcome",
+    "id": "1",
     "category_id": "receiving",
     "category": "استقبال واستلام الأجهزة",
     "title": "الترحيب والاستقبال",
@@ -13,7 +13,7 @@
     "color": "cyan"
   },
   {
-    "id": "bring_charger",
+    "id": "2",
     "category_id": "receiving",
     "category": "استقبال واستلام الأجهزة",
     "title": "تسليم الشاحن مع اللابتوب",
@@ -26,7 +26,7 @@
     "color": "amber"
   },
   {
-    "id": "backup_warning",
+    "id": "3",
     "category_id": "receiving",
     "category": "استقبال واستلام الأجهزة",
     "title": "تنبيه النسخ الاحتياطي",
@@ -39,7 +39,7 @@
     "color": "rose"
   },
   {
-    "id": "intake_completed",
+    "id": "4",
     "category_id": "receiving",
     "category": "استقبال واستلام الأجهزة",
     "title": "اكتمال استلام الجهاز",
@@ -52,7 +52,7 @@
     "color": "emerald"
   },
   {
-    "id": "windows_installed",
+    "id": "5",
     "category_id": "maintenance",
     "category": "الصيانة والمعالجة الفنية",
     "title": "اكتمال تثبيت الويندوز",
@@ -65,7 +65,7 @@
     "color": "blue"
   },
   {
-    "id": "drivers_completed",
+    "id": "6",
     "category_id": "maintenance",
     "category": "الصيانة والمعالجة الفنية",
     "title": "تحديث التعريفات وتنشيط النظام",
@@ -78,7 +78,7 @@
     "color": "cyan"
   },
   {
-    "id": "virus_cleaned",
+    "id": "7",
     "category_id": "maintenance",
     "category": "الصيانة والمعالجة الفنية",
     "title": "تنظيف الفيروسات والبرمجيات الضارة",
@@ -91,7 +91,7 @@
     "color": "emerald"
   },
   {
-    "id": "hardware_cleaned",
+    "id": "8",
     "category_id": "maintenance",
     "category": "الصيانة والمعالجة الفنية",
     "title": "تنظيف المراوح والمعجون الحراري",
@@ -104,7 +104,7 @@
     "color": "teal"
   },
   {
-    "id": "hardware_issue",
+    "id": "9",
     "category_id": "maintenance",
     "category": "الصيانة والمعالجة الفنية",
     "title": "فحص العطل العتادي",
@@ -117,7 +117,7 @@
     "color": "amber"
   },
   {
-    "id": "device_ready",
+    "id": "10",
     "category_id": "delivery",
     "category": "تسليم الأجهزة والجاهزية",
     "title": "الجهاز جاهز للاستلام",
@@ -130,7 +130,7 @@
     "color": "emerald"
   },
   {
-    "id": "test_before_leaving",
+    "id": "11",
     "category_id": "delivery",
     "category": "تسليم الأجهزة والجاهزية",
     "title": "تجربة الجهاز قبل المغادرة",
@@ -143,7 +143,7 @@
     "color": "cyan"
   },
   {
-    "id": "delivery_completed",
+    "id": "12",
     "category_id": "delivery",
     "category": "تسليم الأجهزة والجاهزية",
     "title": "اكتمال تسليم الجهاز للطالب",
@@ -156,7 +156,7 @@
     "color": "violet"
   },
   {
-    "id": "shift_change",
+    "id": "13",
     "category_id": "team",
     "category": "تنسيق الفريق التطوعي",
     "title": "تبديل الوردية التطوعية",
@@ -169,7 +169,7 @@
     "color": "blue"
   },
   {
-    "id": "team_sync",
+    "id": "14",
     "category_id": "team",
     "category": "تنسيق الفريق التطوعي",
     "title": "اجتماع فريق الصيانة",
@@ -182,7 +182,7 @@
     "color": "cyan"
   },
   {
-    "id": "quiet_hours",
+    "id": "15",
     "category_id": "team",
     "category": "تنسيق الفريق التطوعي",
     "title": "يرجى خفض الصوت والتركيز",
@@ -195,7 +195,7 @@
     "color": "amber"
   },
   {
-    "id": "tools_cleanup",
+    "id": "16",
     "category_id": "team",
     "category": "تنسيق الفريق التطوعي",
     "title": "ترتيب طاولات الصيانة والأدوات",
@@ -208,7 +208,7 @@
     "color": "teal"
   },
   {
-    "id": "lost_charger",
+    "id": "17",
     "category_id": "alerts",
     "category": "تنبيهات عامة ومفقودات",
     "title": "شاحن لابتوب مفقود",
@@ -221,7 +221,7 @@
     "color": "amber"
   },
   {
-    "id": "lost_flash_drive",
+    "id": "18",
     "category_id": "alerts",
     "category": "تنبيهات عامة ومفقودات",
     "title": "فلاشة ميموري مفقودة",
@@ -234,7 +234,7 @@
     "color": "blue"
   },
   {
-    "id": "waiting_room_notice",
+    "id": "19",
     "category_id": "alerts",
     "category": "تنبيهات عامة ومفقودات",
     "title": "الانتظار في القاعة المخصصة",
@@ -247,7 +247,7 @@
     "color": "cyan"
   },
   {
-    "id": "closing_soon",
+    "id": "20",
     "category_id": "alerts",
     "category": "تنبيهات عامة ومفقودات",
     "title": "قرب موعد إغلاق المكتب",
@@ -260,7 +260,7 @@
     "color": "rose"
   },
   {
-    "id": "end_of_day_shutdown",
+    "id": "21",
     "category_id": "alerts",
     "category": "تنبيهات عامة ومفقودات",
     "title": "إغلاق نهاية الدوام وتأمين المكان",
@@ -273,7 +273,7 @@
     "color": "red"
   },
   {
-    "id": "dd",
+    "id": "22",
     "category_id": "uncategorized",
     "category": "Uncategorized",
     "title": "كيرنال تيم تشجيع",
@@ -286,7 +286,7 @@
     "color": "cyan"
   },
   {
-    "id": "1",
+    "id": "23",
     "category_id": "alerts",
     "category": "تنبيهات عامة ومفقودات",
     "title": "تنبيه للطلاب من الدخول خلف الطاولات",
@@ -299,7 +299,7 @@
     "color": "cyan"
   },
   {
-    "id": "2",
+    "id": "24",
     "category_id": "team",
     "category": "تنسيق الفريق التطوعي",
     "title": "الكيرنال يصلح",
@@ -309,19 +309,6 @@
     "text_ar": "نُصْلِحُ مَا أَعْجَزَ غَيْرَنَا.. بِشَغَفِ طَاقَمٍ لَا يَهْدَأْ.",
     "text_en": "نُصْلِحُ مَا أَعْجَزَ غَيْرَنَا.. بِشَغَفِ طَاقَمٍ لَا يَهْدَأْ.",
     "icon": "Rocket",
-    "color": "cyan"
-  },
-  {
-    "id": "preset_e7bacf82",
-    "category_id": "uncategorized",
-    "category": "Uncategorized",
-    "title": "تمام",
-    "title_ar": "تمام",
-    "title_en": "تمام",
-    "text": "اي",
-    "text_ar": "اي",
-    "text_en": "اي",
-    "icon": "Volume2",
     "color": "cyan"
   }
 ]

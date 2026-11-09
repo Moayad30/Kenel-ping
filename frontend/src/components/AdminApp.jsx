@@ -1493,6 +1493,7 @@ export default function AdminApp() {
                   }`}>
                     <tr>
                       <th className="py-3.5 px-3 text-center w-12">{t.presetNumCol}</th>
+                      <th className="py-3.5 px-3 text-center w-14 font-mono font-bold text-sky-400">ID</th>
                       <th className="py-3.5 px-4">{t.presetTitleCol}</th>
                       <th className="py-3.5 px-4">{t.presetCategoryCol}</th>
                       <th className="py-3.5 px-4">{t.presetTextCol}</th>
@@ -1514,13 +1515,18 @@ export default function AdminApp() {
                             {index + 1}
                           </td>
 
+                          {/* Numeric Audio File ID */}
+                          <td className="py-3.5 px-3 text-center font-mono font-bold text-sky-400">
+                            {preset.id}
+                          </td>
+
                           <td className="py-3.5 px-4 font-bold">{title}</td>
                           <td className="py-3.5 px-4 font-bold text-xs">
                             <span className={isUncat ? 'text-amber-400' : 'text-[#00D2FF]'}>
                               {isUncat ? t.uncategorized : (categories.find(c => c.id === preset.category_id)?.name_ar || preset.category)}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 max-w-sm truncate text-slate-400">"{text}"</td>
+                          <td className="py-3.5 px-4 max-w-md break-words whitespace-pre-wrap text-slate-400">"{text}"</td>
                           <td className="py-3.5 px-4">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                               <Check className="w-3 h-3 text-emerald-400" />
@@ -1839,7 +1845,7 @@ export default function AdminApp() {
                             {log.source === 'preset' ? 'Preset' : log.source === 'device_call' ? 'Call' : log.source === 'admin_voice' ? 'Live Voice' : 'Custom'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 max-w-md truncate">{log.text}</td>
+                        <td className="py-3 px-4 min-w-[280px] break-words whitespace-pre-wrap leading-relaxed">{log.text}</td>
                         <td className="py-3 px-4 font-mono uppercase text-[10px] font-bold text-sky-500">{log.language || 'AR'}</td>
                         <td className="py-3 px-4 font-mono text-slate-400">{log.sender_ip}</td>
                         <td className="py-3 px-4 text-center">
