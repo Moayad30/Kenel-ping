@@ -57,6 +57,7 @@ export default function AdminApp() {
   // Preset Modals (Single Title & Single Text)
   const [isAddPresetOpen, setIsAddPresetOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState(null);
+  const [presetToDelete, setPresetToDelete] = useState(null);
   const [presetForm, setPresetForm] = useState({
     category_id: 'uncategorized',
     title: '',
@@ -492,15 +493,16 @@ export default function AdminApp() {
     }
   };
 
-  const handleDeletePreset = async (id) => {
-    if (!window.confirm('Delete this preset permanently?')) return;
+  const handleConfirmDeletePreset = async () => {
+    if (!presetToDelete) return;
     try {
-      const res = await fetch(`/api/admin/presets/${id}`, {
+      const res = await fetch(`/api/admin/presets/${presetToDelete.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         showToast('Preset deleted', 'success');
+        setPresetToDelete(null);
         loadAdminData();
       } else {
         showToast('Error deleting preset', 'error');
@@ -590,6 +592,55 @@ export default function AdminApp() {
             }}
           >
             <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Single Preset Deletion */}
+      {presetToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className={`border rounded-3xl w-full max-w-md p-6 shadow-2xl transition-all ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152] text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center gap-3 mb-4 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base">{t.confirmDeletePresetTitle}</h3>
+                <p className="text-xs opacity-75 font-mono">ID: {presetToDelete.id}</p>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed mb-4 opacity-80">
+              {t.confirmDeletePresetMessage}
+            </p>
+
+            <div className={`p-3.5 rounded-2xl border text-xs mb-6 ${
+              theme === 'dark' ? 'bg-[#070C1B] border-[#1F3152]' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <p className="font-bold mb-1 text-cyan-400">{presetToDelete.title}</p>
+              <p className="opacity-80 italic line-clamp-2">"{presetToDelete.text}"</p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPresetToDelete(null)}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+                  theme === 'dark' ? 'bg-[#162238] hover:bg-[#1F3152] text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePreset}
+                className="px-5 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition-all"
+              >
+                {t.confirmDeleteBtn}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1554,7 +1605,7 @@ export default function AdminApp() {
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => handleDeletePreset(preset.id)}
+                                onClick={() => setPresetToDelete(preset)}
                                 className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 transition-colors"
                                 title={t.delete}
                               >
