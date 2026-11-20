@@ -161,7 +161,7 @@ async def start_audio_repeat(payload: RepeatRequest, request: Request):
     if not getattr(settings, 'repeat_feature_enabled', True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Auto-repeat feature is currently disabled by administrator / ميزة التكرار معطلة حالياً من قبل الإدارة"
+            detail="Auto-repeat feature is locked / ميزة التكرار التلقائي مقفلة"
         )
 
     speech_title = (payload.title or "").strip()

@@ -501,7 +501,7 @@ class AudioEngine:
     ) -> dict:
         settings = load_settings()
         if not getattr(settings, 'repeat_feature_enabled', True):
-            raise ValueError("Auto-repeat feature is currently disabled by administrator / ميزة التكرار معطلة حالياً من قبل الإدارة")
+            raise ValueError("Auto-repeat feature is locked / ميزة التكرار التلقائي مقفلة")
 
         # Cancel any existing repeat task if running
         if self.active_repeat_task and not self.active_repeat_task.done():

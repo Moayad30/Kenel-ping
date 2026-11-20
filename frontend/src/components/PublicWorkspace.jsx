@@ -1130,35 +1130,84 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                   </div>
                 )}
 
-                {/* Interval Between Repeats */}
-                <div className="space-y-2">
+                {/* Interval Between Repeats (In Seconds Only) */}
+                <div className="space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold">{t.repeatIntervalLabel}</span>
-                    <span className="font-mono text-[#00D2FF] font-bold">{repeatIntervalSeconds} {t.secondsUnit}</span>
+                    <span className="font-mono text-[#00D2FF] font-bold">
+                      {repeatIntervalSeconds} {t.secondsUnit}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                    {[5, 10, 15, 30, 60].map((sec) => (
+
+                  {/* Quick Preset Buttons (Seconds Only) */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      { label: '10s', sec: 10 },
+                      { label: '30s', sec: 30 },
+                      { label: '60s', sec: 60 },
+                      { label: '120s', sec: 120 },
+                      { label: '300s', sec: 300 },
+                      { label: '600s', sec: 600 }
+                    ].map((item) => (
                       <button
-                        key={sec}
+                        key={item.sec}
                         type="button"
-                        onClick={() => setRepeatIntervalSeconds(sec)}
+                        onClick={() => setRepeatIntervalSeconds(item.sec)}
                         className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all ${
-                          repeatIntervalSeconds === sec
-                            ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF]'
+                          repeatIntervalSeconds === item.sec
+                            ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF] shadow-sm'
                             : theme === 'dark'
-                              ? 'bg-[#162238] border-[#1F3152] text-slate-300'
-                              : 'bg-slate-100 border-slate-200 text-slate-700'
+                              ? 'bg-[#162238] border-[#1F3152] text-slate-300 hover:bg-[#1E2D4A]'
+                              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                         }`}
                       >
-                        {sec}s
+                        {item.label}
                       </button>
                     ))}
                   </div>
+
+                  {/* Direct Manual Numeric Input with Max Limit Note */}
+                  <div className={`p-2.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                    theme === 'dark' ? 'bg-[#121C33]/60 border-[#1F3152]' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs opacity-80 shrink-0 font-medium">
+                        {lang === 'en' ? 'Custom Interval:' : 'إدخال الفاصل يدوياً:'}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {lang === 'en' ? '(Max: 3600s)' : '(الحد الأقصى 3600 ثانية)'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="2"
+                        max="3600"
+                        value={repeatIntervalSeconds}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (isNaN(val)) return;
+                          setRepeatIntervalSeconds(Math.max(2, Math.min(3600, val)));
+                        }}
+                        className={`w-28 px-3 py-1 rounded-xl text-xs font-bold border font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#00D2FF] ${
+                          theme === 'dark' ? 'bg-[#162238] border-[#1F3152] text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                        placeholder="300"
+                      />
+                      <span className="text-xs text-slate-400 font-bold shrink-0">
+                        {t.secondsUnit}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Range Slider up to 600 seconds (10 min) */}
                   <input
                     type="range"
                     min="3"
-                    max="120"
-                    value={repeatIntervalSeconds}
+                    max="600"
+                    step="1"
+                    value={Math.min(600, repeatIntervalSeconds)}
                     onChange={(e) => setRepeatIntervalSeconds(parseInt(e.target.value, 10))}
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
                   />

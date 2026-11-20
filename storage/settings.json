@@ -8,7 +8,7 @@
   "pre_chime_silence": 0.5,
   "inter_chime_delay": 1.0,
   "bluetooth_wakeup_enabled": true,
-  "server_volume": 50,
+  "server_volume": 75,
   "bluetooth_speaker_mac": null,
   "bluetooth_speaker_name": null,
   "tts_voice_ar": "ar-SA-HamedNeural",
@@ -16,5 +16,5 @@
   "speech_rate": "+0%",
   "speech_pitch": "+0Hz",
   "smart_pronunciation_enabled": true,
-  "repeat_feature_enabled": false
+  "repeat_feature_enabled": true
 }
