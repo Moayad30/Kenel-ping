@@ -1,5 +1,13 @@
 [
   {
+    "id": "EventSunday",
+    "name_ar": "فعالية الأحد | EventSunday",
+    "name_en": "Event Sunday",
+    "icon": "Sparkles",
+    "color": "purple",
+    "order": 0
+  },
+  {
     "id": "receiving",
     "name_ar": "استقبال واستلام الأجهزة",
     "name_en": "Device Intake & Reception",

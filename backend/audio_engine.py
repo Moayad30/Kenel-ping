@@ -265,6 +265,8 @@ class AudioEngine:
         self.volume_monitor_task: Optional[asyncio.Task] = None
         self._last_known_volume: Optional[int] = None
         self._current_process: Optional[asyncio.subprocess.Process] = None
+        self.active_repeat_task: Optional[asyncio.Task] = None
+        self.active_repeat_info: Optional[dict] = None
 
     def start(self):
         if not self.worker_task or self.worker_task.done():
@@ -316,7 +318,9 @@ class AudioEngine:
             "server_volume": vol,
             "cooldown_remaining": self.get_cooldown_remaining(),
             "audio_device": device_info,
-            "settings": settings.model_dump()
+            "settings": settings.model_dump(),
+            "active_repeat": self.active_repeat_info,
+            "repeat_feature_enabled": getattr(settings, 'repeat_feature_enabled', True)
         }
 
     async def broadcast_state(self):
@@ -430,9 +434,18 @@ class AudioEngine:
     async def stop_playback(self) -> dict:
         """
         Immediately halts any active audio playback process (mpv),
-        clears pending items in queue, resets system state to 'ready', and broadcasts update.
+        cancels any active repeat loop, clears pending items in queue,
+        resets system state to 'ready', and broadcasts update.
         """
         stopped = False
+
+        # Terminate active repeat loop if running
+        if self.active_repeat_task and not self.active_repeat_task.done():
+            self.active_repeat_task.cancel()
+            self.active_repeat_task = None
+            stopped = True
+        self.active_repeat_info = None
+
         if self._current_process:
             try:
                 self._current_process.kill()
@@ -466,6 +479,189 @@ class AudioEngine:
         self.last_enqueued_time = 0
         await self.broadcast_state()
         return {"success": True, "stopped": stopped}
+
+    async def stop_repeat(self) -> dict:
+        """
+        Stops the active repeat schedule and halts current playback immediately.
+        """
+        return await self.stop_playback()
+
+    async def start_repeat(
+        self,
+        title: str,
+        text: str,
+        source: str = "custom",
+        preset_id: Optional[str] = None,
+        sender_ip: Optional[str] = None,
+        lang: Optional[str] = None,
+        mode: str = "count",  # "count" | "infinite" | "duration"
+        count: int = 3,
+        duration_seconds: int = 600,
+        interval_seconds: int = 15
+    ) -> dict:
+        settings = load_settings()
+        if not getattr(settings, 'repeat_feature_enabled', True):
+            raise ValueError("Auto-repeat feature is currently disabled by administrator / ميزة التكرار معطلة حالياً من قبل الإدارة")
+
+        # Cancel any existing repeat task if running
+        if self.active_repeat_task and not self.active_repeat_task.done():
+            self.active_repeat_task.cancel()
+            self.active_repeat_task = None
+
+        # Clean/sanitize parameters
+        interval_seconds = max(2, min(3600, int(interval_seconds)))
+        if mode == "count":
+            count = max(1, min(100, int(count)))
+        elif mode == "duration":
+            duration_seconds = max(10, min(180 * 60, int(duration_seconds)))
+        else:
+            mode = "infinite"
+
+        detected_lang = lang or detect_language(text)
+        repeat_id = str(uuid.uuid4())[:8]
+
+        self.active_repeat_info = {
+            "id": repeat_id,
+            "title": title or "Voice Announcement",
+            "text": text,
+            "source": source,
+            "preset_id": preset_id,
+            "sender_ip": sender_ip or "Local",
+            "lang": detected_lang,
+            "mode": mode,
+            "count_total": count if mode == "count" else None,
+            "count_current": 0,
+            "duration_seconds": duration_seconds if mode == "duration" else None,
+            "interval_seconds": interval_seconds,
+            "next_repeat_in": None,
+            "status": "starting",
+            "started_at": time.time(),
+            "elapsed_seconds": 0
+        }
+
+        self.active_repeat_task = asyncio.create_task(
+            self._repeat_runner(
+                repeat_id=repeat_id,
+                title=title or "Voice Announcement",
+                text=text,
+                source=source,
+                preset_id=preset_id,
+                sender_ip=sender_ip,
+                lang=detected_lang,
+                mode=mode,
+                count=count,
+                duration_seconds=duration_seconds,
+                interval_seconds=interval_seconds
+            )
+        )
+
+        await self.broadcast_state()
+        return self.active_repeat_info
+
+    async def _repeat_runner(
+        self,
+        repeat_id: str,
+        title: str,
+        text: str,
+        source: str,
+        preset_id: Optional[str],
+        sender_ip: Optional[str],
+        lang: str,
+        mode: str,
+        count: int,
+        duration_seconds: int,
+        interval_seconds: int
+    ):
+        iteration = 0
+        start_time = time.time()
+
+        try:
+            while True:
+                # Check exit condition before launching next iteration
+                if mode == "count" and iteration >= count:
+                    break
+                if mode == "duration" and (time.time() - start_time) >= duration_seconds:
+                    break
+
+                iteration += 1
+                if self.active_repeat_info:
+                    self.active_repeat_info["count_current"] = iteration
+                    self.active_repeat_info["status"] = "speaking"
+                    self.active_repeat_info["next_repeat_in"] = None
+                    self.active_repeat_info["elapsed_seconds"] = int(time.time() - start_time)
+                await self.broadcast_state()
+
+                # Add repetition tag to title for audit trail
+                if mode == "count":
+                    iter_title = f"{title} (تكرار {iteration}/{count})"
+                else:
+                    iter_title = f"{title} (تكرار #{iteration})"
+
+                item_id = str(uuid.uuid4())[:8]
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                audit = load_audit()
+                entry = {
+                    "id": item_id,
+                    "timestamp": timestamp,
+                    "title": iter_title,
+                    "text": text,
+                    "source": f"{source}_repeat",
+                    "sender_ip": sender_ip or "Local",
+                    "language": lang
+                }
+                audit.append(entry)
+                save_audit(audit)
+
+                item = {
+                    "id": item_id,
+                    "title": iter_title,
+                    "text": text,
+                    "source": f"{source}_repeat",
+                    "preset_id": preset_id,
+                    "timestamp": timestamp,
+                    "language": lang
+                }
+
+                self.last_enqueued_time = time.time()
+                self.last_speech_time = time.time()
+                await self.queue.put(item)
+                if self.status == "ready":
+                    self.status = "queued"
+                await self.broadcast_state()
+
+                # Wait for playback to start and finish
+                await asyncio.sleep(0.5)
+                while self.status == "speaking" or not self.queue.empty():
+                    await asyncio.sleep(0.5)
+
+                # Check exit condition immediately after playback finishes
+                if mode == "count" and iteration >= count:
+                    break
+                if mode == "duration" and (time.time() - start_time) >= duration_seconds:
+                    break
+
+                # Count down interval seconds with live WebSocket updates
+                if self.active_repeat_info:
+                    self.active_repeat_info["status"] = "waiting"
+
+                for remaining in range(interval_seconds, 0, -1):
+                    if self.active_repeat_info:
+                        self.active_repeat_info["next_repeat_in"] = remaining
+                        self.active_repeat_info["elapsed_seconds"] = int(time.time() - start_time)
+                    await self.broadcast_state()
+                    await asyncio.sleep(1.0)
+                    if mode == "duration" and (time.time() - start_time) >= duration_seconds:
+                        break
+
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            print(f"Error in repeat runner: {e}")
+        finally:
+            self.active_repeat_info = None
+            self.active_repeat_task = None
+            await self.broadcast_state()
 
     def select_voice_for_text(self, text: str, requested_voice: Optional[str] = None) -> tuple[str, str]:
         """Returns (voice_name, language_code)."""

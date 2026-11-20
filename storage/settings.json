@@ -1,19 +1,20 @@
 {
   "spam_cooldown_enabled": false,
   "cooldown_seconds": 15,
-  "pre_chime_enabled": true,
+  "pre_chime_enabled": false,
   "chime_tone": "bell",
   "chime_volume": 100,
   "chime_timing": "synchronized",
-  "pre_chime_silence": 1.0,
-  "inter_chime_delay": 0.25,
+  "pre_chime_silence": 0.5,
+  "inter_chime_delay": 1.0,
   "bluetooth_wakeup_enabled": true,
-  "server_volume": 85,
+  "server_volume": 50,
   "bluetooth_speaker_mac": null,
   "bluetooth_speaker_name": null,
   "tts_voice_ar": "ar-SA-HamedNeural",
   "tts_voice_en": "en-US-AndrewMultilingualNeural",
   "speech_rate": "+0%",
   "speech_pitch": "+0Hz",
-  "smart_pronunciation_enabled": true
+  "smart_pronunciation_enabled": true,
+  "repeat_feature_enabled": false
 }

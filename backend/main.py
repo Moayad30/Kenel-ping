@@ -81,6 +81,16 @@ class ReorderPresetsRequest(BaseModel):
 class BluetoothReconnectRequest(BaseModel):
     mac: Optional[str] = None
 
+class RepeatRequest(BaseModel):
+    preset_id: Optional[str] = None
+    title: Optional[str] = None
+    text: Optional[str] = None
+    lang: Optional[str] = None
+    mode: str = "count"  # "count" | "infinite" | "duration"
+    count: int = Field(default=3, ge=1, le=100)
+    duration_minutes: float = Field(default=5.0, ge=0.5, le=180.0)
+    interval_seconds: int = Field(default=15, ge=2, le=3600)
+
 # ----------------- WebSocket -----------------
 
 @app.websocket("/ws")
@@ -138,6 +148,65 @@ async def stop_audio_playback():
     Clears pending items from the queue and resets the system state to ready.
     """
     result = await audio_engine.stop_playback()
+    return result
+
+@app.post("/api/speak/repeat")
+async def start_audio_repeat(payload: RepeatRequest, request: Request):
+    """
+    Triggers an automated repeating speech sequence.
+    Can repeat for a count of iterations, continuously until stopped, or for a duration.
+    Subject to admin enable/disable setting.
+    """
+    settings = load_settings()
+    if not getattr(settings, 'repeat_feature_enabled', True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Auto-repeat feature is currently disabled by administrator / ميزة التكرار معطلة حالياً من قبل الإدارة"
+        )
+
+    speech_title = (payload.title or "").strip()
+    speech_text = (payload.text or "").strip()
+    preset_id = payload.preset_id
+
+    if preset_id:
+        presets = load_presets()
+        preset = next((p for p in presets if p.id == preset_id), None)
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset not found")
+        speech_text = preset.text or preset.text_ar or preset.text_en or ""
+        speech_title = preset.title or preset.title_ar or preset.title_en or f"Preset #{preset_id}"
+
+    if not speech_text:
+        raise HTTPException(status_code=400, detail="Speech text cannot be empty")
+
+    client_ip = request.client.host if request.client else "Local"
+    duration_seconds = int(payload.duration_minutes * 60)
+
+    try:
+        repeat_info = await audio_engine.start_repeat(
+            title=speech_title or "Voice Announcement",
+            text=speech_text,
+            source="preset" if preset_id else "free_text",
+            preset_id=preset_id,
+            sender_ip=client_ip,
+            lang=payload.lang,
+            mode=payload.mode,
+            count=payload.count,
+            duration_seconds=duration_seconds,
+            interval_seconds=payload.interval_seconds
+        )
+        return {
+            "success": True,
+            "message": "Auto-repeat initiated successfully",
+            "repeat": repeat_info
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/repeat/stop")
+async def stop_audio_repeat():
+    """Stops any active auto-repeat schedule and halts playback immediately."""
+    result = await audio_engine.stop_repeat()
     return result
 
 @app.post("/api/speak/preset/{preset_id}")

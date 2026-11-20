@@ -45,6 +45,7 @@ class SettingsModel(BaseModel):
     speech_rate: str = "+0%"
     speech_pitch: str = "+0Hz"
     smart_pronunciation_enabled: bool = False
+    repeat_feature_enabled: bool = True
 
     # Legacy support
     @property

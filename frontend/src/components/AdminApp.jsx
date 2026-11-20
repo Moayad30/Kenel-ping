@@ -4,7 +4,7 @@ import {
   History, Volume2, Bell, Radio, Check, AlertCircle, RefreshCw,
   Plus, Trash2, Edit2, Play, VolumeX, Sparkles, ExternalLink, Activity,
   Sun, Moon, Globe, Folder, FolderPlus, Tag, Layers, Mic, AlertTriangle,
-  ChevronUp, ChevronDown, Square
+  ChevronUp, ChevronDown, Square, Repeat
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import PublicWorkspace from './PublicWorkspace';
@@ -27,7 +27,8 @@ export default function AdminApp() {
     bluetooth_wakeup_enabled: true,
     server_volume: 85,
     tts_voice_ar: 'ar-SA-HamedNeural',
-    tts_voice_en: 'en-US-AndrewMultilingualNeural'
+    tts_voice_en: 'en-US-AndrewMultilingualNeural',
+    repeat_feature_enabled: true
   });
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -1279,6 +1280,27 @@ export default function AdminApp() {
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Auto-Repeat Controls (Admin master switch to enable or lock member repeat feature) */}
+              <div className={`pt-4 border-t space-y-3 ${theme === 'dark' ? 'border-[#1F3152]' : 'border-slate-200'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className={`text-xs font-bold flex items-center gap-1.5 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                      <Repeat className="w-3.5 h-3.5 text-[#00D2FF]" />
+                      {t.repeatSettingsTitle}
+                    </h4>
+                    <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {t.repeatToggleDesc}
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.repeat_feature_enabled ?? true}
+                    onChange={(e) => updateSetting('repeat_feature_enabled', e.target.checked)}
+                    className="w-5 h-5 rounded cursor-pointer accent-[#00D2FF]"
+                  />
+                </div>
               </div>
 
             </div>

@@ -5,7 +5,8 @@ import {
   Coffee, Utensils, Smile, Package, PartyPopper, ShieldAlert, WifiOff,
   Sparkles, Lock, Flame, Search, Send, Radio, Activity, Clock,
   Sun, Moon, Globe, Folder, Cpu, X, Headphones, Speaker, RefreshCw, Laptop, Zap, Square,
-  ChevronDown, ChevronUp, ChevronsDown, ChevronsUp
+  ChevronDown, ChevronUp, ChevronsDown, ChevronsUp,
+  Repeat, Infinity, Timer, ListOrdered
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLanguageContext';
 import RoutineActions from './RoutineActions';
@@ -15,7 +16,7 @@ const ICON_MAP = {
   Users, Calendar, Code, RotateCcw, PhoneCall, Rocket, CheckCircle2,
   Snowflake, AlertTriangle, ServerCrash, Coffee, Utensils, Smile,
   Package, PartyPopper, ShieldAlert, WifiOff, Sparkles, Lock, Flame,
-  Volume2, Folder
+  Volume2, Folder, Laptop, Zap, Cpu
 };
 
 function PresetCardItem({
@@ -27,6 +28,8 @@ function PresetCardItem({
   lang,
   t,
   onSpeak,
+  onOpenRepeat,
+  repeatFeatureEnabled,
   isSystemSpeaking,
   cooldownRemaining
 }) {
@@ -146,33 +149,56 @@ function PresetCardItem({
         </div>
       </div>
 
-      {/* Trigger Button with Active Cooldown Display */}
-      <button
-        onClick={() => onSpeak(preset)}
-        disabled={cooldownRemaining > 0 || isSystemSpeaking}
-        className={`mt-5 w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn ${
-          theme === 'dark'
-            ? 'bg-[#162238] hover:bg-[#00D2FF] text-slate-200 hover:text-slate-950 border-[#1F3152] hover:border-[#00D2FF]'
-            : 'bg-slate-100 hover:bg-sky-600 text-slate-700 hover:text-white border-slate-200 hover:border-sky-600'
-        }`}
-      >
-        {isSystemSpeaking ? (
-          <>
-            <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
-            <span>{t.speakingNowBtn}</span>
-          </>
-        ) : cooldownRemaining > 0 ? (
-          <>
-            <Clock className="w-3.5 h-3.5 animate-pulse text-amber-400" />
-            <span>{cooldownRemaining}s</span>
-          </>
-        ) : (
-          <>
-            <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
-            <span>{t.speakButton}</span>
-          </>
-        )}
-      </button>
+      {/* Action Buttons: Trigger Once + Auto-Repeat */}
+      <div className="mt-5 flex items-center gap-2">
+        <button
+          onClick={() => onSpeak(preset)}
+          disabled={cooldownRemaining > 0 || isSystemSpeaking}
+          className={`flex-1 py-2.5 px-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn ${
+            theme === 'dark'
+              ? 'bg-[#162238] hover:bg-[#00D2FF] text-slate-200 hover:text-slate-950 border-[#1F3152] hover:border-[#00D2FF]'
+              : 'bg-slate-100 hover:bg-sky-600 text-slate-700 hover:text-white border-slate-200 hover:border-sky-600'
+          }`}
+        >
+          {isSystemSpeaking ? (
+            <>
+              <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
+              <span>{t.speakingNowBtn}</span>
+            </>
+          ) : cooldownRemaining > 0 ? (
+            <>
+              <Clock className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+              <span>{cooldownRemaining}s</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-3.5 h-3.5 transition-transform group-hover/btn:scale-110" />
+              <span>{t.speakButton}</span>
+            </>
+          )}
+        </button>
+
+        {/* Repeat Button */}
+        <button
+          type="button"
+          onClick={() => onOpenRepeat && onOpenRepeat(preset)}
+          title={repeatFeatureEnabled === false ? t.repeatDisabledByAdmin : t.repeatFeatureTitle}
+          className={`py-2.5 px-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 border transition-all shrink-0 ${
+            repeatFeatureEnabled === false
+              ? 'opacity-40 cursor-not-allowed bg-slate-800/40 border-slate-700/50 text-slate-500'
+              : theme === 'dark'
+                ? 'bg-[#162238] hover:bg-purple-600/30 text-purple-300 hover:text-purple-200 border-[#1F3152] hover:border-purple-400/50'
+                : 'bg-slate-100 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border-slate-200 hover:border-purple-300'
+          }`}
+        >
+          {repeatFeatureEnabled === false ? (
+            <Lock className="w-3.5 h-3.5" />
+          ) : (
+            <Repeat className="w-3.5 h-3.5" />
+          )}
+          <span className="hidden sm:inline">{t.repeatBtn}</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -210,8 +236,31 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
       label_en: 'Device Audio Ready',
       card_details: 'Internal Audio Device'
     },
-    settings: { spam_cooldown_enabled: true, cooldown_seconds: 15 }
+    settings: { spam_cooldown_enabled: true, cooldown_seconds: 15 },
+    active_repeat: null,
+    repeat_feature_enabled: true
   });
+
+  // Auto-Repeat Modal & State
+  const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
+  const [repeatTarget, setRepeatTarget] = useState(null); // { preset_id, title, text, lang }
+  const [repeatMode, setRepeatMode] = useState('count'); // 'count' | 'infinite' | 'duration'
+  const [repeatCount, setRepeatCount] = useState(3);
+  const [repeatDurationMinutes, setRepeatDurationMinutes] = useState(5);
+  const [repeatIntervalSeconds, setRepeatIntervalSeconds] = useState(15);
+  const [isSubmittingRepeat, setIsSubmittingRepeat] = useState(false);
+
+  const handleOpenRepeatForPreset = (preset) => {
+    const title = preset.title || preset.title_ar || preset.title_en || preset.id;
+    const text = preset.text || preset.text_ar || preset.text_en || '';
+    setRepeatTarget({
+      preset_id: preset.id,
+      title,
+      text,
+      lang: null
+    });
+    setIsRepeatModalOpen(true);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -333,6 +382,7 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
       if (e.key === 'Escape') {
         setIsAudioModalOpen(false);
         setIsCategoryModalOpen(false);
+        setIsRepeatModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -349,7 +399,8 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
     setSystemState((prev) => ({
       ...prev,
       status: 'ready',
-      current_item: null
+      current_item: null,
+      active_repeat: null
     }));
     try {
       const res = await fetch('/api/audio/stop', { method: 'POST' });
@@ -365,6 +416,55 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
       }
     } catch {
       fetchStatus();
+      showToast(t.errorNetwork, 'error');
+    }
+  };
+
+  const handleStartRepeat = async () => {
+    if (!repeatTarget) return;
+    setIsSubmittingRepeat(true);
+    try {
+      const payload = {
+        preset_id: repeatTarget.preset_id || null,
+        title: repeatTarget.title,
+        text: repeatTarget.text,
+        lang: repeatTarget.lang || null,
+        mode: repeatMode,
+        count: parseInt(repeatCount, 10) || 3,
+        duration_minutes: parseFloat(repeatDurationMinutes) || 5.0,
+        interval_seconds: parseInt(repeatIntervalSeconds, 10) || 15
+      };
+
+      const res = await fetch('/api/speak/repeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(t.repeatSuccessToast, 'success');
+        setIsRepeatModalOpen(false);
+        fetchStatus();
+      } else {
+        showToast(data.detail || t.errorGeneric, 'error');
+      }
+    } catch {
+      showToast(t.errorNetwork, 'error');
+    } finally {
+      setIsSubmittingRepeat(false);
+    }
+  };
+
+  const handleStopRepeat = async () => {
+    try {
+      const res = await fetch('/api/repeat/stop', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(t.repeatStoppedToast, 'info');
+        setSystemState(prev => ({ ...prev, active_repeat: null }));
+        fetchStatus();
+      }
+    } catch {
       showToast(t.errorNetwork, 'error');
     }
   };
@@ -801,6 +901,294 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
         </header>
       )}
 
+      {/* Active Repeat Live Banner */}
+      {systemState.active_repeat && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-1">
+          <div className="relative overflow-hidden rounded-2xl p-4 sm:p-5 border shadow-xl bg-gradient-to-r from-purple-950/90 via-[#0E172E] to-purple-950/90 border-purple-500/50 text-white flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 shrink-0">
+                <Repeat className="w-5 h-5 animate-spin" style={{ animationDuration: '4s' }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-bold px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
+                    {t.repeatActiveBanner}
+                  </span>
+                  <span className="text-xs text-purple-300 font-bold">
+                    {systemState.active_repeat.title}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-300 flex items-center gap-2 flex-wrap">
+                  <span>
+                    {systemState.active_repeat.mode === 'count'
+                      ? t.repeatCountProgress
+                          .replace('{current}', systemState.active_repeat.count_current || 1)
+                          .replace('{total}', systemState.active_repeat.count_total || '?')
+                      : systemState.active_repeat.mode === 'duration'
+                        ? t.repeatDurationProgress
+                            .replace('{duration}', Math.round((systemState.active_repeat.duration_seconds || 0) / 60))
+                            .replace('{elapsed}', `${Math.floor((systemState.active_repeat.elapsed_seconds || 0) / 60)}:${String((systemState.active_repeat.elapsed_seconds || 0) % 60).padStart(2, '0')}`)
+                        : t.repeatInfiniteProgress
+                            .replace('{current}', systemState.active_repeat.count_current || 1)
+                    }
+                  </span>
+                  <span className="text-purple-400">•</span>
+                  <span className="font-mono text-purple-200 font-bold">
+                    {systemState.active_repeat.status === 'speaking'
+                      ? t.speakingNowBtn
+                      : t.repeatNextIn.replace('{seconds}', systemState.active_repeat.next_repeat_in ?? systemState.active_repeat.interval_seconds)
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleStopRepeat}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-rose-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>{t.repeatStopBtn}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Repeat Modal Dialog */}
+      {isRepeatModalOpen && repeatTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-lg rounded-3xl p-6 sm:p-7 border shadow-2xl transition-all ${
+            theme === 'dark' ? 'bg-[#0B132B] border-[#1F3152] text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700/30 mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Repeat className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">{t.repeatModalTitle}</h3>
+                  <p className="text-xs opacity-70 line-clamp-1">
+                    {repeatTarget.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsRepeatModalOpen(false)}
+                className="p-2 rounded-xl hover:bg-slate-800/40 text-slate-400 hover:text-white transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Admin Lock Warning */}
+            {systemState.repeat_feature_enabled === false ? (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-3 mb-5">
+                <Lock className="w-5 h-5 shrink-0" />
+                <span>{t.repeatDisabledByAdmin}</span>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Spoken Text Preview */}
+                <div className={`p-3 rounded-2xl border text-xs leading-relaxed ${
+                  theme === 'dark' ? 'bg-[#121C33] border-[#1F3152] text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'
+                }`}>
+                  <span className="font-bold text-[11px] block mb-1 text-[#00D2FF]">
+                    {repeatTarget.title}
+                  </span>
+                  "{repeatTarget.text}"
+                </div>
+
+                {/* Repeat Mode Selector */}
+                <div>
+                  <label className="block text-xs font-bold mb-2">
+                    {t.repeatModeLabel}
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRepeatMode('count')}
+                      className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                        repeatMode === 'count'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : theme === 'dark'
+                            ? 'bg-[#162238] border-[#1F3152] text-slate-300 hover:bg-[#1E2D4A]'
+                            : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <ListOrdered className="w-4 h-4" />
+                      <span className="text-[11px] text-center leading-tight">{t.repeatModeCount}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRepeatMode('infinite')}
+                      className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                        repeatMode === 'infinite'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : theme === 'dark'
+                            ? 'bg-[#162238] border-[#1F3152] text-slate-300 hover:bg-[#1E2D4A]'
+                            : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Infinity className="w-4 h-4" />
+                      <span className="text-[11px] text-center leading-tight">{t.repeatModeInfinite}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRepeatMode('duration')}
+                      className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                        repeatMode === 'duration'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : theme === 'dark'
+                            ? 'bg-[#162238] border-[#1F3152] text-slate-300 hover:bg-[#1E2D4A]'
+                            : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Timer className="w-4 h-4" />
+                      <span className="text-[11px] text-center leading-tight">{t.repeatModeDuration}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mode Dependent Option: Count */}
+                {repeatMode === 'count' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold">{t.repeatCountLabel}</span>
+                      <span className="font-mono text-[#00D2FF] font-bold">{repeatCount}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[2, 3, 5, 10, 20].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setRepeatCount(num)}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all ${
+                            repeatCount === num
+                              ? 'bg-purple-600 text-white border-purple-400'
+                              : theme === 'dark'
+                                ? 'bg-[#162238] border-[#1F3152] text-slate-300'
+                                : 'bg-slate-100 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={repeatCount}
+                        onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))}
+                        className={`w-20 px-2 py-1 rounded-xl text-xs font-bold border font-mono ${
+                          theme === 'dark' ? 'bg-[#162238] border-[#1F3152] text-white' : 'bg-slate-100 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Mode Dependent Option: Duration */}
+                {repeatMode === 'duration' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold">{t.repeatDurationLabel}</span>
+                      <span className="font-mono text-[#00D2FF] font-bold">{repeatDurationMinutes} {t.minutesUnit}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[5, 10, 15, 30, 60].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => setRepeatDurationMinutes(mins)}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all ${
+                            repeatDurationMinutes === mins
+                              ? 'bg-purple-600 text-white border-purple-400'
+                              : theme === 'dark'
+                                ? 'bg-[#162238] border-[#1F3152] text-slate-300'
+                                : 'bg-slate-100 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {mins} {t.minutesUnit}
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        min="1"
+                        max="180"
+                        value={repeatDurationMinutes}
+                        onChange={(e) => setRepeatDurationMinutes(Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)))}
+                        className={`w-20 px-2 py-1 rounded-xl text-xs font-bold border font-mono ${
+                          theme === 'dark' ? 'bg-[#162238] border-[#1F3152] text-white' : 'bg-slate-100 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Interval Between Repeats */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold">{t.repeatIntervalLabel}</span>
+                    <span className="font-mono text-[#00D2FF] font-bold">{repeatIntervalSeconds} {t.secondsUnit}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                    {[5, 10, 15, 30, 60].map((sec) => (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setRepeatIntervalSeconds(sec)}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all ${
+                          repeatIntervalSeconds === sec
+                            ? 'bg-[#00D2FF] text-slate-950 border-[#00D2FF]'
+                            : theme === 'dark'
+                              ? 'bg-[#162238] border-[#1F3152] text-slate-300'
+                              : 'bg-slate-100 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {sec}s
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="range"
+                    min="3"
+                    max="120"
+                    value={repeatIntervalSeconds}
+                    onChange={(e) => setRepeatIntervalSeconds(parseInt(e.target.value, 10))}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#00D2FF]"
+                  />
+                </div>
+
+                {/* Submit Action */}
+                <div className="pt-3 border-t border-slate-700/30 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsRepeatModalOpen(false)}
+                    className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-400 hover:text-white transition-all cursor-pointer"
+                  >
+                    {t.closeBtn || 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartRepeat}
+                    disabled={isSubmittingRepeat}
+                    className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 flex items-center gap-2 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <Repeat className={`w-4 h-4 ${isSubmittingRepeat ? 'animate-spin' : ''}`} />
+                    <span>{t.repeatStartBtn}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Member Device Audio Settings & Sound Card Modal */}
       {isAudioModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -1105,6 +1493,8 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                 lang={lang}
                 t={t}
                 onSpeak={handleSpeakPreset}
+                onOpenRepeat={handleOpenRepeatForPreset}
+                repeatFeatureEnabled={systemState.repeat_feature_enabled !== false}
                 isSystemSpeaking={systemState.status === 'speaking'}
                 cooldownRemaining={cooldownRemaining}
               />
@@ -1227,33 +1617,65 @@ export default function PublicWorkspace({ extraAdminContent = null, isEmbedded =
                     </span>
                   </div>
 
-                  {/* Submit Button with Active Cooldown & Speaking Guard */}
-                  <button
-                    type="submit"
-                    disabled={isSubmittingCustom || !customText.trim() || cooldownRemaining > 0 || systemState.status === 'speaking'}
-                    className={`py-2 px-5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg transition-all ${
-                      systemState.status === 'speaking' || cooldownRemaining > 0
-                        ? 'bg-slate-800 text-amber-400 border border-amber-500/40 opacity-80 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95'
-                    }`}
-                  >
-                    {systemState.status === 'speaking' ? (
-                      <>
-                        <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
-                        <span>{t.speakingNowBtn}</span>
-                      </>
-                    ) : cooldownRemaining > 0 ? (
-                      <>
-                        <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                        <span>{t.cooldownWaitBtn.replace('{seconds}', cooldownRemaining)}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Repeat Button for Custom Speech */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!customText.trim()) return;
+                        setRepeatTarget({
+                          title: customTitle.trim() || t.freeSpeechTitle,
+                          text: customText.trim(),
+                          preset_id: null
+                        });
+                        setIsRepeatModalOpen(true);
+                      }}
+                      disabled={!customText.trim() || systemState.repeat_feature_enabled === false}
+                      className={`py-2 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 border transition-all ${
+                        systemState.repeat_feature_enabled === false || !customText.trim()
+                          ? 'opacity-40 cursor-not-allowed bg-slate-800/40 border-slate-700/50 text-slate-500'
+                          : theme === 'dark'
+                            ? 'bg-[#162238] hover:bg-purple-600/30 text-purple-300 hover:text-purple-200 border-[#1F3152] hover:border-purple-400/50'
+                            : 'bg-slate-100 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border-slate-200 hover:border-purple-300'
+                      }`}
+                      title={systemState.repeat_feature_enabled === false ? t.repeatDisabledByAdmin : t.repeatFeatureTitle}
+                    >
+                      {systemState.repeat_feature_enabled === false ? (
+                        <Lock className="w-3.5 h-3.5" />
+                      ) : (
+                        <Repeat className="w-3.5 h-3.5" />
+                      )}
+                      <span>{t.repeatFeatureTitle}</span>
+                    </button>
+
+                    {/* Submit Button with Active Cooldown & Speaking Guard */}
+                    <button
+                      type="submit"
+                      disabled={isSubmittingCustom || !customText.trim() || cooldownRemaining > 0 || systemState.status === 'speaking'}
+                      className={`py-2 px-5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg transition-all ${
+                        systemState.status === 'speaking' || cooldownRemaining > 0
+                          ? 'bg-slate-800 text-amber-400 border border-amber-500/40 opacity-80 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-[#00D2FF] to-blue-600 hover:from-[#33DCFF] hover:to-blue-500 text-slate-950 shadow-[#00D2FF]/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95'
+                      }`}
+                    >
+                      {systemState.status === 'speaking' ? (
+                        <>
+                          <Activity className="w-3.5 h-3.5 animate-pulse text-rose-400" />
+                          <span>{t.speakingNowBtn}</span>
+                        </>
+                      ) : cooldownRemaining > 0 ? (
+                        <>
+                          <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                          <span>{t.cooldownWaitBtn.replace('{seconds}', cooldownRemaining)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{isSubmittingCustom ? t.speakingSubmitting : t.speakNowButton}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
