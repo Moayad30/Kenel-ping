@@ -1,7 +1,7 @@
 {
   "spam_cooldown_enabled": false,
   "cooldown_seconds": 15,
-  "pre_chime_enabled": false,
+  "pre_chime_enabled": true,
   "chime_tone": "bell",
   "chime_volume": 100,
   "chime_timing": "synchronized",

@@ -4,7 +4,10 @@ import math
 import struct
 import subprocess
 
-CHIMES_DIR = "/home/moayad/kernelping/storage/chimes"
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+CHIMES_DIR = str(BASE_DIR / "storage" / "chimes")
 os.makedirs(CHIMES_DIR, exist_ok=True)
 
 SAMPLE_RATE = 44100

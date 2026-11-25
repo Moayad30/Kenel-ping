@@ -3,12 +3,13 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/home/moayad/kernelping")
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
 import edge_tts
 from backend.audio_engine import clean_and_normalize_text
 
-PRESETS_FILE = Path("/home/moayad/kernelping/storage/presets.json")
-OUTPUT_DIR = Path("/home/moayad/kernelping/storage/presets")
+PRESETS_FILE = BASE_DIR / "storage" / "presets.json"
+OUTPUT_DIR = BASE_DIR / "storage" / "presets"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 VOICE_AR = "ar-SA-HamedNeural"

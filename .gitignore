@@ -9,10 +9,28 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Frontend Dependencies & Build Artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Certificates & Private Keys
+certs/
+*.pem
+*.key
+
+# Temporary & Runtime Audio / Audit Files
+storage/temp/*
+!storage/temp/.gitkeep
+storage/audit.json
+
 # Environment Variables and Logs
 .env
+.env.*
 *.log
 
-# Editor Directories
+# OS & Editor Directories
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/

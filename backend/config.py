@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-BASE_DIR = Path("/home/moayad/kernelping")
+BASE_DIR = Path(__file__).resolve().parent.parent
 STORAGE_DIR = BASE_DIR / "storage"
 PRESETS_DIR = STORAGE_DIR / "presets"
 CHIMES_DIR = STORAGE_DIR / "chimes"
